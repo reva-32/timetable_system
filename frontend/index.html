@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Timetable Generator</title>
+
+```
+<!-- Link CSS -->
+<link rel="stylesheet" href="index.css">
+```
+
+</head>
+
+<body>
+
+```
+<!-- Main Container -->
+<div class="container">
+
+    <h1>📘 Exam Timetable Generator</h1>
+    <link rel="stylesheet" href="index.css">
+    <input type="file" id="fileInput" accept=".xlsx,.csv">
+    <br>
+    <button onclick="uploadFile()">Generate Timetable</button>
+    
+</div>
+
+<!-- Result Table -->
+<table id="resultTable" style="display:none;">
+    <thead>
+        <tr>
+            <th>Course</th>
+            <th>Slot</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+    function uploadFile() {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Please select a Excel file");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        fetch("http://127.0.0.1:5000/generate", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            const table = document.getElementById("resultTable");
+            const tbody = table.querySelector("tbody");
+
+            tbody.innerHTML = "";
+
+            data.forEach(row => {
+                const tr = document.createElement("tr");
+
+                tr.innerHTML = `
+                    <td>${row.course}</td>
+                    <td>Slot ${row.slot}</td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+
+            table.style.display = "table";
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error generating timetable");
+        });
+    }
+</script>
+```
+
+</body>
+</html>
