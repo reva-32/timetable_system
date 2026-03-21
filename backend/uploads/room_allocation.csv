@@ -1,0 +1,11 @@
+course_id,slot,date,session,students,rooms_assigned,total_capacity,status
+C8,1,27-Nov,Morning,23,"Room101, Room102",30,Allocated
+C6,1,27-Nov,Morning,19,Room103,20,Allocated
+C3,1,27-Nov,Morning,18,Room104,20,Allocated
+C1,2,27-Nov,Afternoon,25,"Room101, Room102",30,Allocated
+C5,2,27-Nov,Afternoon,24,"Room103, Room104",40,Allocated
+C7,2,27-Nov,Afternoon,21,Room105,25,Allocated
+C4,3,28-Nov,Morning,22,"Room101, Room102",30,Allocated
+C9,3,28-Nov,Morning,20,Room103,20,Allocated
+C10,3,28-Nov,Morning,17,Room104,20,Allocated
+C2,4,28-Nov,Afternoon,20,"Room101, Room102",30,Allocated

@@ -213,6 +213,195 @@ def print_slot_summary(final_data, total_slots):
     print(f"📚 Total Courses      : {sum(s['Count'] for s in summary)}")
 
 
+
+# ================================================
+# STAGE 2 — ROOM ALLOCATION (GREEDY ASSIGNMENT)
+# ================================================
+
+def load_room_data(filepath):
+    """
+    Load Rooms sheet from Excel.
+
+    Returns:
+        rooms : list of dicts { room_id, capacity }
+                sorted by capacity in ascending order
+    """
+    df_rooms = pd.read_excel(filepath, sheet_name="Rooms")
+
+    rooms = []
+    for _, row in df_rooms.iterrows():
+        try:
+            capacity = int(row["capacity"])
+        except (ValueError, TypeError):
+            capacity = 0
+
+        room_id = safe_str(row["room_id"])
+        if room_id != "N/A" and capacity > 0:
+            rooms.append({
+                "room_id" : room_id,
+                "capacity": capacity
+            })
+
+    # Sort rooms by capacity ascending
+    rooms.sort(key=lambda x: x["capacity"])
+    return rooms
+
+
+def allocate_rooms(final_data, rooms):
+    """
+    Greedy Room Allocation.
+
+    Algorithm:
+    1. For each course in a slot, check how many students need seating
+    2. Keep adding rooms (smallest first) until total capacity >= students
+    3. One room can only be used once per slot
+
+    Constraint:
+        sum(capacity of assigned rooms) >= enrolled_students
+
+    Returns:
+        room_assignments : list of dicts
+        unallocated      : list of course dicts where no valid assignment found
+    """
+    room_assignments = []
+    unallocated      = []
+
+    # Track which rooms are already used in each slot
+    slot_used_rooms = {}
+
+    # Sort by slot, then by student count descending (larger courses get priority)
+    sorted_data = sorted(
+        final_data,
+        key=lambda x: (x["slot"], -x["enrolled_students"])
+    )
+
+    for row in sorted_data:
+        slot      = row["slot"]
+        course_id = row["course_id"]
+        students  = row["enrolled_students"]
+        date      = row["date"]
+        session   = row["session"]
+
+        # Fallback to declared count if enrolled is 0
+        if students == 0:
+            students = row.get("declared_students", 0)
+
+        # Available rooms for this slot
+        used_in_slot = slot_used_rooms.get(slot, set())
+        available    = [r for r in rooms if r["room_id"] not in used_in_slot]
+
+        # Greedy selection
+        assigned       = []
+        total_capacity = 0
+
+        for room in available:
+            if total_capacity >= students:
+                break
+            assigned.append(room["room_id"])
+            total_capacity += room["capacity"]
+            used_in_slot.add(room["room_id"])
+
+        slot_used_rooms[slot] = used_in_slot
+
+        if total_capacity >= students:
+            room_assignments.append({
+                "course_id"     : course_id,
+                "slot"          : slot,
+                "date"          : date,
+                "session"       : session,
+                "students"      : students,
+                "rooms_assigned": ", ".join(assigned),
+                "total_capacity": total_capacity,
+                "status"        : "Allocated"
+            })
+        else:
+            unallocated.append({
+                "course_id"     : course_id,
+                "slot"          : slot,
+                "date"          : date,
+                "session"       : session,
+                "students"      : students,
+                "rooms_assigned": ", ".join(assigned) if assigned else "None",
+                "total_capacity": total_capacity,
+                "status"        : "Insufficient capacity"
+            })
+
+    return room_assignments, unallocated
+
+
+def validate_room_allocation(room_assignments, unallocated):
+    """
+    Post-allocation validation:
+    1. Total capacity >= students for every course
+    2. No room used twice in the same slot
+    """
+    violations = []
+
+    # Check capacity constraint
+    for a in room_assignments:
+        if a["total_capacity"] < a["students"]:
+            violations.append(
+                f"  ⚠️  {a['course_id']} Slot {a['slot']}: "
+                f"capacity {a['total_capacity']} < students {a['students']}"
+            )
+
+    # Check room reuse within same slot
+    slot_room_map = {}
+    for a in room_assignments:
+        slot       = a["slot"]
+        rooms_list = [r.strip() for r in a["rooms_assigned"].split(",")]
+        for room in rooms_list:
+            key = (slot, room)
+            if key in slot_room_map:
+                violations.append(
+                    f"  ⚠️  Room {room} used twice in Slot {slot}: "
+                    f"{slot_room_map[key]} and {a['course_id']}"
+                )
+            else:
+                slot_room_map[key] = a["course_id"]
+
+    if violations:
+        print("\n🚨 ROOM ALLOCATION VIOLATIONS:")
+        for v in violations:
+            print(v)
+    else:
+        print("\n✅ Room allocation valid — all capacity constraints satisfied.")
+
+    if unallocated:
+        print(f"\n⚠️  {len(unallocated)} course(s) could not be fully allocated:")
+        for u in unallocated:
+            print(f"   → {u['course_id']} needs {u['students']} seats, "
+                  f"only {u['total_capacity']} available")
+        print("   Tip: Add more rooms or increase capacities in Excel.")
+
+    return len(violations) == 0 and len(unallocated) == 0
+
+
+def print_room_summary(room_assignments):
+    """Print room allocation summary table."""
+    print("\n--- ROOM ALLOCATION SUMMARY ---")
+    display = [
+        {
+            "Course"        : a["course_id"],
+            "Slot"          : a["slot"],
+            "Date"          : a["date"],
+            "Session"       : a["session"],
+            "Students"      : a["students"],
+            "Rooms Assigned": a["rooms_assigned"],
+            "Total Capacity": a["total_capacity"],
+            "Status"        : a["status"]
+        }
+        for a in sorted(room_assignments, key=lambda x: (x["slot"], x["course_id"]))
+    ]
+    print(tabulate(display, headers="keys", tablefmt="fancy_grid"))
+
+    total_students = sum(a["students"] for a in room_assignments)
+    total_capacity = sum(a["total_capacity"] for a in room_assignments)
+    utilization    = (total_students / total_capacity * 100) if total_capacity else 0
+    print(f"\n📊 Overall room utilization: {total_students}/{total_capacity} "
+          f"seats filled ({utilization:.1f}%)")
+
+
 # ================================================
 # STAGE 3 — TEACHER ASSIGNMENT (BIPARTITE MATCHING)
 # ================================================
@@ -600,14 +789,39 @@ def main():
         writer.writerows(final_data)
 
     print(f"\n💾 CSV exported → {output_file}")
-    print(
-        "\n📌 Columns for your teammates:\n"
-        "   course_id, course_name, year, department → course identity\n"
-        "   slot, date, session                      → time assignment\n"
-        "   declared_students                        → official class size (Courses sheet)\n"
-        "   enrolled_students                        → actual enrolled (Student_Courses sheet)\n"
-        "   Room allocation and teacher assignment can join on course_id + slot.\n"
-    )
+
+    # -----------------------------------------------
+    # STAGE 2 — Room Allocation
+    # -----------------------------------------------
+    print("\n" + "=" * 70)
+    print("       🏫  STAGE 2: ROOM ALLOCATION (GREEDY ASSIGNMENT)  🏫")
+    print("=" * 70)
+
+    print("\n📂 Loading room data...")
+    rooms = load_room_data(input_file)
+    print(f"   ✔ {len(rooms)} rooms loaded")
+    for r in rooms:
+        print(f"      → {r['room_id']}: capacity {r['capacity']}")
+
+    print("\n🏃 Running greedy room allocation...")
+    room_assignments, unallocated_rooms = allocate_rooms(final_data, rooms)
+    print(f"   ✔ {len(room_assignments)} courses allocated to rooms")
+
+    print("\n" + "=" * 70)
+    print("         📋  ROOM ALLOCATION SCHEDULE  📋")
+    print("=" * 70)
+    print_room_summary(room_assignments)
+    validate_room_allocation(room_assignments, unallocated_rooms)
+
+    # Export room allocation to CSV
+    room_output_file = os.path.join("uploads", "room_allocation.csv")
+    if room_assignments:
+        keys_r = list(room_assignments[0].keys())
+        with open(room_output_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=keys_r)
+            writer.writeheader()
+            writer.writerows(room_assignments)
+        print(f"\n💾 Room allocation exported → {room_output_file}")
 
     # -----------------------------------------------
     # STAGE 3 — Teacher Assignment
