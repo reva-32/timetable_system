@@ -1,87 +1,427 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Timetable Generator</title>
-
-```
-<!-- Link CSS -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ExamSched — PICT Timetable Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="index.css">
-```
-
 </head>
-
 <body>
 
-```
-<!-- Main Container -->
-<div class="container">
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div class="orb o3"></div>
 
-    <h1>📘 Exam Timetable Generator</h1>
-    <link rel="stylesheet" href="index.css">
-    <input type="file" id="fileInput" accept=".xlsx,.csv">
-    <br>
-    <button onclick="uploadFile()">Generate Timetable</button>
-    
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="2" y="2" width="11" height="11" rx="3.5" fill="#6366f1"/>
+          <rect x="15" y="2" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65"/>
+          <rect x="2" y="15" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65"/>
+          <rect x="15" y="15" width="11" height="11" rx="3.5" fill="#06b6d4" opacity=".85"/>
+        </svg>
+      </div>
+      <span class="brand-name">ExamSched</span>
+    </div>
+    <div class="nav-pills">
+      <span class="npill">PICT · IT Department</span>
+      <span class="npill hi">DSM Project</span>
+    </div>
+  </div>
+</nav>
+
+<!-- UPLOAD PAGE -->
+<section id="uploadPage">
+  <div class="hero">
+    <div class="eyebrow">
+      <span class="edot"></span>
+      Graph Theory &amp; Optimization Algorithms
+    </div>
+
+    <h1>
+      Generate Your<br>
+      <span class="gt">Exam Timetable</span><br>
+      Automatically
+    </h1>
+
+    <p class="hero-sub">Upload your Excel data and watch three powerful algorithms work in sequence — eliminating conflicts, optimizing rooms, and assigning teachers with mathematical precision.</p>
+
+    <div class="astrip">
+      <div class="astep">
+        <div class="anum">STAGE 01</div>
+        <div class="aname">DSATUR Graph Coloring</div>
+        <div class="adesc">Conflict-free slot assignment</div>
+      </div>
+      <div class="aarrow">→</div>
+      <div class="astep">
+        <div class="anum">STAGE 02</div>
+        <div class="aname">Greedy Room Allocation</div>
+        <div class="adesc">Capacity-based room assignment</div>
+      </div>
+      <div class="aarrow">→</div>
+      <div class="astep">
+        <div class="anum">STAGE 03</div>
+        <div class="aname">Hungarian Algorithm</div>
+        <div class="adesc">Min-cost bipartite matching</div>
+      </div>
+    </div>
+
+    <div class="ucard">
+      <div class="uzone" id="uzone">
+        <div class="uzone-inner">
+          <div class="uico">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p class="uprim">Drop your <strong>exam_data.xlsx</strong> here</p>
+          <p class="usec">or <span class="ulink">click to browse</span></p>
+          <input type="file" id="fileInput" accept=".xlsx" hidden>
+        </div>
+      </div>
+
+      <div class="fpill" id="fpill" style="display:none">
+        <span class="fpill-ico">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </span>
+        <span id="fname" class="fpill-name"></span>
+        <button class="fpill-rm" onclick="clearFile()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="cta" id="genBtn" onclick="generate()" disabled>
+        <span>Generate Schedule</span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- LOADING -->
+<div id="loadScreen" style="display:none">
+  <div class="lbox">
+    <div class="lrings">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="rdot"></div>
+    </div>
+    <p class="lstage" id="lstage">Initializing...</p>
+    <div class="ltrack"><div class="lbar" id="lbar"></div></div>
+  </div>
 </div>
 
-<!-- Result Table -->
-<table id="resultTable" style="display:none;">
-    <thead>
-        <tr>
-            <th>Course</th>
-            <th>Slot</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
+<!-- RESULTS PAGE -->
+<section id="resultsPage" style="display:none">
+
+  <div class="rbar">
+    <div class="rbar-l">
+      <button class="backbtn" onclick="reset()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        New Schedule
+      </button>
+      <div>
+        <div class="rtitle">Schedule Generated</div>
+        <div class="rsub" id="rsub">—</div>
+      </div>
+    </div>
+    <div class="sbadge">
+      <span class="sdot"></span>
+      All constraints satisfied
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="sgrid">
+    <div class="scard" style="--acc:#6366f1"><span class="sico">📚</span><div><div class="snum" id="sc1">—</div><div class="slabel">Courses Scheduled</div></div></div>
+    <div class="scard" style="--acc:#8b5cf6"><span class="sico">👥</span><div><div class="snum" id="sc2">—</div><div class="slabel">Students</div></div></div>
+    <div class="scard" style="--acc:#06b6d4"><span class="sico">🗓️</span><div><div class="snum" id="sc3">—</div><div class="slabel">Exam Slots</div></div></div>
+    <div class="scard" style="--acc:#10b981"><span class="sico">✅</span><div><div class="snum" id="sc4">—</div><div class="slabel">Student Conflicts</div></div></div>
+    <div class="scard" style="--acc:#f59e0b"><span class="sico">👩‍🏫</span><div><div class="snum" id="sc5">—</div><div class="slabel">Duties Assigned</div></div></div>
+    <div class="scard" style="--acc:#ec4899"><span class="sico">🎯</span><div><div class="snum" id="sc6">—</div><div class="slabel">Pref. Satisfaction</div></div></div>
+  </div>
+
+  <!-- PANEL -->
+  <div class="panel">
+    <div class="ptabs">
+      <button class="ptab on" onclick="tab('tt',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Exam Timetable
+      </button>
+      <button class="ptab" onclick="tab('rm',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Room Allocation
+      </button>
+      <button class="ptab" onclick="tab('tc',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Teacher Duties
+      </button>
+      <div class="pind" id="pind"></div>
+    </div>
+
+    <!-- TIMETABLE TAB -->
+    <div class="tcont on" id="tc-tt">
+      <div class="tbar">
+        <div class="tbar-l">
+          <span class="stag ind">Stage 1</span>
+          <span class="tdesc">DSATUR Graph Coloring — conflict-free slot assignment</span>
+        </div>
+        <button class="exbtn" onclick="exportCSV('tt')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+      <div class="tscroll">
+        <table id="ttbl">
+          <thead><tr><th>Course</th><th>Name</th><th>Year</th><th>Dept</th><th>Slot</th><th>Date</th><th>Session</th><th>Students</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ROOMS TAB -->
+    <div class="tcont" id="tc-rm">
+      <div class="tbar">
+        <div class="tbar-l">
+          <span class="stag cya">Stage 2</span>
+          <span class="tdesc">Greedy Room Assignment — capacity-based allocation</span>
+        </div>
+        <button class="exbtn" onclick="exportCSV('rm')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+      <div class="tscroll">
+        <table id="rtbl">
+          <thead><tr><th>Course</th><th>Slot</th><th>Date</th><th>Session</th><th>Students</th><th>Rooms Assigned</th><th>Capacity</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TEACHERS TAB -->
+    <div class="tcont" id="tc-tc">
+      <div class="tbar">
+        <div class="tbar-l">
+          <span class="stag vio">Stage 3</span>
+          <span class="tdesc">Hungarian Algorithm — minimum cost bipartite matching</span>
+        </div>
+        <button class="exbtn" onclick="exportCSV('tc')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+      <div class="tscroll">
+        <table id="tctbl">
+          <thead><tr><th>Slot</th><th>Date</th><th>Session</th><th>Course</th><th>Role</th><th>Teacher ID</th><th>Teacher</th><th>Preferred</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</section>
 
 <script>
-    function uploadFile() {
-        const fileInput = document.getElementById("fileInput");
-        const file = fileInput.files[0];
+const uzone=document.getElementById('uzone'),fi=document.getElementById('fileInput'),
+      fpill=document.getElementById('fpill'),fname=document.getElementById('fname'),
+      genBtn=document.getElementById('genBtn');
 
-        if (!file) {
-            alert("Please select a Excel file");
-            return;
-        }
+uzone.addEventListener('click',()=>fi.click());
+uzone.addEventListener('dragover',e=>{e.preventDefault();uzone.classList.add('drag')});
+uzone.addEventListener('dragleave',()=>uzone.classList.remove('drag'));
+uzone.addEventListener('drop',e=>{
+  e.preventDefault();uzone.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f&&f.name.endsWith('.xlsx'))setFile(f);else alert('Please upload a .xlsx file');
+});
+fi.addEventListener('change',()=>fi.files[0]&&setFile(fi.files[0]));
 
-        const formData = new FormData();
-        formData.append("file", file);
+function setFile(f){
+  fname.textContent=f.name;
+  fpill.style.display='flex';
+  uzone.style.display='none';
+  genBtn.disabled=false;
+}
+function clearFile(){
+  fi.value='';
+  fpill.style.display='none';
+  uzone.style.display='flex';
+  genBtn.disabled=true;
+}
 
-        fetch("http://127.0.0.1:5000/generate", {
-            method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            const table = document.getElementById("resultTable");
-            const tbody = table.querySelector("tbody");
+const stages=[
+  {t:'Building conflict graph…',p:12},
+  {t:'Running DSATUR coloring…',p:30},
+  {t:'Allocating rooms greedily…',p:52},
+  {t:'Running bipartite matching…',p:74},
+  {t:'Validating all constraints…',p:90},
+  {t:'Compiling final schedule…',p:100},
+];
+function startLoad(){
+  const el=document.getElementById('lstage'),bar=document.getElementById('lbar');
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i>=stages.length){clearInterval(iv);return}
+    el.textContent=stages[i].t;
+    bar.style.width=stages[i].p+'%';
+    i++;
+  },600);
+  return iv;
+}
 
-            tbody.innerHTML = "";
+let G=null;
+function generate(){
+  const f=fi.files[0];if(!f)return;
+  document.getElementById('loadScreen').style.display='flex';
+  const iv=startLoad();
+  const fd=new FormData();fd.append('file',f);
+  fetch('http://127.0.0.1:5000/generate',{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      clearInterval(iv);
+      setTimeout(()=>{
+        document.getElementById('loadScreen').style.display='none';
+        if(d.error){alert('Error: '+d.error);return}
+        G=d;render(d);
+      },350);
+    })
+    .catch(()=>{
+      clearInterval(iv);
+      document.getElementById('loadScreen').style.display='none';
+      alert('Cannot connect to server.\nRun: python app.py');
+    });
+}
 
-            data.forEach(row => {
-                const tr = document.createElement("tr");
+const slotCls=['','s1c','s2c','s3c','s4c','s5c','s6c'];
+function schip(s){return`<span class="schip ${slotCls[s]||'s1c'}">Slot ${s}</span>`}
 
-                tr.innerHTML = `
-                    <td>${row.course}</td>
-                    <td>Slot ${row.slot}</td>
-                `;
+function render(d){
+  const s=d.summary;
+  document.getElementById('sc1').textContent=s.total_courses;
+  document.getElementById('sc2').textContent=s.total_students;
+  document.getElementById('sc3').textContent=s.slots_used;
+  document.getElementById('sc4').textContent=s.conflicts_found===0?'0 ✓':s.conflicts_found;
+  document.getElementById('sc5').textContent=s.duties_assigned+'/'+(s.duties_assigned+s.duties_failed);
+  document.getElementById('sc6').textContent=s.pref_satisfaction+'%';
+  document.getElementById('rsub').textContent=
+    s.total_courses+' courses · '+s.slots_used+' slots · '+s.total_students+' students';
 
-                tbody.appendChild(tr);
-            });
+  const tb=document.querySelector('#ttbl tbody');tb.innerHTML='';
+  d.timetable.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
+    tr.innerHTML=`
+      <td><span class="mbadge">${r.course_id}</span></td>
+      <td class="ncell">${r.course_name}</td>
+      <td>${r.year}</td>
+      <td><span class="dtag">${r.department}</span></td>
+      <td>${schip(r.slot)}</td>
+      <td class="mcell">${r.date}</td>
+      <td>${r.session}</td>
+      <td><strong>${r.enrolled_students}</strong></td>`;
+    tb.appendChild(tr);
+  });
 
-            table.style.display = "table";
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Error generating timetable");
-        });
-    }
+  const rb=document.querySelector('#rtbl tbody');rb.innerHTML='';
+  d.room_allocation.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
+    tr.innerHTML=`
+      <td><span class="mbadge">${r.course_id}</span></td>
+      <td>${schip(r.slot)}</td>
+      <td class="mcell">${r.date}</td>
+      <td>${r.session}</td>
+      <td><strong>${r.students}</strong></td>
+      <td class="mcell rcell">${r.rooms_assigned}</td>
+      <td>${r.total_capacity}</td>
+      <td><span class="okchip">✓ ${r.status}</span></td>`;
+    rb.appendChild(tr);
+  });
+
+  const tc=document.querySelector('#tctbl tbody');tc.innerHTML='';
+  d.teacher_duties.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
+    const rl=r.role.toLowerCase();
+    tr.innerHTML=`
+      <td>${schip(r.slot)}</td>
+      <td class="mcell">${r.date}</td>
+      <td>${r.session}</td>
+      <td><span class="mbadge">${r.course_id}</span></td>
+      <td><span class="rchip ${rl}">${r.role}</span></td>
+      <td class="mcell">${r.teacher_id}</td>
+      <td>${r.teacher_name}</td>
+      <td>${r.preferred?'<span class="pyes">✓ Yes</span>':'<span class="pno">— No</span>'}</td>`;
+    tc.appendChild(tr);
+  });
+
+  document.getElementById('uploadPage').style.display='none';
+  document.getElementById('resultsPage').style.display='block';
+  setTimeout(()=>moveInd(document.querySelector('.ptab.on')),80);
+}
+
+function tab(name,btn){
+  document.querySelectorAll('.tcont').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('tc-'+name).classList.add('on');
+  btn.classList.add('on');
+  moveInd(btn);
+}
+function moveInd(btn){
+  if(!btn)return;
+  const ind=document.getElementById('pind');
+  ind.style.left=btn.offsetLeft+'px';
+  ind.style.width=btn.offsetWidth+'px';
+}
+window.addEventListener('resize',()=>moveInd(document.querySelector('.ptab.on')));
+
+function exportCSV(type){
+  if(!G)return;
+  let rows=[],fn='';
+  if(type==='tt'){
+    fn='exam_timetable.csv';
+    rows=[['course_id','course_name','year','department','slot','date','session','enrolled_students'],
+          ...G.timetable.map(r=>[r.course_id,r.course_name,r.year,r.department,r.slot,r.date,r.session,r.enrolled_students])];
+  }else if(type==='rm'){
+    fn='room_allocation.csv';
+    rows=[['course_id','slot','date','session','students','rooms_assigned','total_capacity','status'],
+          ...G.room_allocation.map(r=>[r.course_id,r.slot,r.date,r.session,r.students,r.rooms_assigned,r.total_capacity,r.status])];
+  }else{
+    fn='teacher_duties.csv';
+    rows=[['slot','date','session','course_id','role','teacher_id','teacher_name','preferred'],
+          ...G.teacher_duties.map(r=>[r.slot,r.date,r.session,r.course_id,r.role,r.teacher_id,r.teacher_name,r.preferred?'Yes':'No'])];
+  }
+  const a=Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'})),
+    download:fn
+  });
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+function reset(){
+  document.getElementById('resultsPage').style.display='none';
+  document.getElementById('uploadPage').style.display='block';
+  clearFile();G=null;
+}
+
+setTimeout(()=>moveInd(document.querySelector('.ptab.on')),150);
 </script>
-```
-
 </body>
 </html>
