@@ -3,6 +3,8 @@ import os
 import csv
 from itertools import combinations
 from tabulate import tabulate
+import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 # ================================================
 # CORE ALGORITHM LOGIC
@@ -212,6 +214,280 @@ def print_slot_summary(final_data, total_slots):
 
 
 # ================================================
+# STAGE 3 — TEACHER ASSIGNMENT (BIPARTITE MATCHING)
+# ================================================
+
+def load_teacher_data(filepath):
+    """
+    Load Teachers and Preferences sheets from Excel.
+
+    Returns:
+        teachers : dict { teacher_id -> {name, role, preferred_slots: set} }
+    """
+    df_teachers    = pd.read_excel(filepath, sheet_name="Teachers")
+    df_preferences = pd.read_excel(filepath, sheet_name="Preferences")
+
+    # Build preference map: teacher_id -> set of preferred slot display IDs
+    pref_map = {}
+    for _, row in df_preferences.iterrows():
+        t_id = str(row["teacher_id"]).strip()
+        raw  = str(row["preferred_slots"]).strip()
+        # Stored as "1,2,3" strings
+        try:
+            slots = {int(s.strip()) for s in raw.split(",") if s.strip().isdigit()}
+        except Exception:
+            slots = set()
+        pref_map[t_id] = slots
+
+    teachers = {}
+    for _, row in df_teachers.iterrows():
+        t_id   = str(row["teacher_id"]).strip()
+        t_name = str(row["name"]).strip()
+        t_role = str(row["role"]).strip()   # "Senior" | "Squad" | "Junior"
+        teachers[t_id] = {
+            "name"            : t_name,
+            "role"            : t_role,
+            "preferred_slots" : pref_map.get(t_id, set())
+        }
+
+    return teachers
+
+
+def build_duties(final_data):
+    """
+    Generate one duty per (slot, course) combination from the exam schedule.
+    Each duty requires exactly ONE Junior supervisor inside the room.
+    Senior and Squad duties are generated per unique slot.
+
+    Returns:
+        duties : list of dicts
+            { duty_id, slot, date, session, course_id, role_required }
+    """
+    duties = []
+    duty_id = 1
+
+    # Junior duty — one per course per slot (inside the room)
+    for row in final_data:
+        duties.append({
+            "duty_id"      : duty_id,
+            "slot"         : row["slot"],
+            "date"         : row["date"],
+            "session"      : row["session"],
+            "course_id"    : row["course_id"],
+            "role_required": "Junior"
+        })
+        duty_id += 1
+
+    # Senior duty — one per unique slot (overall control)
+    seen_slots = set()
+    for row in final_data:
+        if row["slot"] not in seen_slots:
+            duties.append({
+                "duty_id"      : duty_id,
+                "slot"         : row["slot"],
+                "date"         : row["date"],
+                "session"      : row["session"],
+                "course_id"    : "ALL",
+                "role_required": "Senior"
+            })
+            duty_id += 1
+            seen_slots.add(row["slot"])
+
+    # Squad duty — one per unique slot (roving across rooms)
+    seen_slots = set()
+    for row in final_data:
+        if row["slot"] not in seen_slots:
+            duties.append({
+                "duty_id"      : duty_id,
+                "slot"         : row["slot"],
+                "date"         : row["date"],
+                "session"      : row["session"],
+                "course_id"    : "ALL",
+                "role_required": "Squad"
+            })
+            duty_id += 1
+            seen_slots.add(row["slot"])
+
+    return duties
+
+
+def compute_cost(teacher, duty, teacher_duty_count, MAX_DUTIES=5):
+    """
+    Compute assignment cost for a (teacher, duty) pair.
+
+    Cost logic:
+    - Role mismatch          → INF (hard constraint, never assign)
+    - Already at max duties  → INF (hard constraint)
+    - Preferred slot         → cost = 1  (strongly preferred)
+    - Non-preferred slot     → cost = 10 (allowed but penalised)
+
+    Lower cost = better assignment.
+    """
+    INF = 10_000
+
+    # Hard constraint: role must match
+    if teacher["role"] != duty["role_required"]:
+        return INF
+
+    # Hard constraint: max 5 duties per teacher
+    if teacher_duty_count.get(teacher["id"], 0) >= MAX_DUTIES:
+        return INF
+
+    # Soft constraint: prefer slots the teacher listed
+    if duty["slot"] in teacher["preferred_slots"]:
+        return 1
+    else:
+        return 10
+
+
+def assign_teachers(teachers, duties):
+    """
+    Solve the teacher-duty assignment using Minimum Cost Bipartite Matching.
+
+    Uses scipy.optimize.linear_sum_assignment (Hungarian Algorithm) on the
+    cost matrix built from compute_cost().
+
+    Returns:
+        assignments : list of dicts
+            { duty_id, slot, date, session, course_id,
+              role_required, teacher_id, teacher_name, cost }
+        unassigned  : list of duty dicts that could not be filled
+    """
+    INF = 10_000
+
+    # Flatten teacher dict into a list for matrix indexing
+    teacher_list = [{"id": tid, **tdata} for tid, tdata in teachers.items()]
+    n_teachers   = len(teacher_list)
+    n_duties     = len(duties)
+
+    # Pad to square matrix (Hungarian algorithm needs square)
+    size = max(n_teachers, n_duties)
+
+    # Track how many duties each teacher has been given (updated iteratively)
+    teacher_duty_count = {t["id"]: 0 for t in teacher_list}
+
+    # We solve in ONE pass using the full cost matrix.
+    # Build cost matrix: rows = teachers, cols = duties
+    cost_matrix = np.full((size, size), INF, dtype=float)
+
+    for i, teacher in enumerate(teacher_list):
+        for j, duty in enumerate(duties):
+            cost_matrix[i][j] = compute_cost(
+                teacher, duty, teacher_duty_count
+            )
+
+    # Run Hungarian algorithm — finds optimal min-cost assignment
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    assignments = []
+    unassigned  = []
+    assigned_duty_ids = set()
+
+    for r, c in zip(row_ind, col_ind):
+        # Skip padding rows/cols
+        if r >= n_teachers or c >= n_duties:
+            continue
+
+        cost = cost_matrix[r][c]
+        if cost >= INF:
+            # Could not assign — hard constraint violated
+            continue
+
+        teacher = teacher_list[r]
+        duty    = duties[c]
+
+        teacher_duty_count[teacher["id"]] = teacher_duty_count.get(teacher["id"], 0) + 1
+        assigned_duty_ids.add(duty["duty_id"])
+
+        assignments.append({
+            "duty_id"      : duty["duty_id"],
+            "slot"         : duty["slot"],
+            "date"         : duty["date"],
+            "session"      : duty["session"],
+            "course_id"    : duty["course_id"],
+            "role_required": duty["role_required"],
+            "teacher_id"   : teacher["id"],
+            "teacher_name" : teacher["name"],
+            "cost"         : int(cost)
+        })
+
+    # Collect unassigned duties
+    for duty in duties:
+        if duty["duty_id"] not in assigned_duty_ids:
+            unassigned.append(duty)
+
+    return assignments, unassigned, teacher_duty_count
+
+
+def validate_teacher_assignment(assignments, teacher_duty_count, MAX_DUTIES=5):
+    """
+    Post-assignment validation:
+    1. No teacher assigned two duties in the same slot
+    2. No teacher exceeds max duty count
+    3. Role integrity — teacher role matches duty role
+    """
+    violations = []
+
+    # Check: same teacher in same slot twice
+    slot_map = {}
+    for a in assignments:
+        key = (a["teacher_id"], a["slot"])
+        if key in slot_map:
+            violations.append(
+                f"  ⚠️  {a['teacher_name']} has TWO duties in slot {a['slot']}"
+            )
+        else:
+            slot_map[key] = True
+
+    # Check: max duties
+    for t_id, count in teacher_duty_count.items():
+        if count > MAX_DUTIES:
+            violations.append(
+                f"  ⚠️  Teacher {t_id} has {count} duties — exceeds max of {MAX_DUTIES}"
+            )
+
+    if violations:
+        print("\n🚨 TEACHER ASSIGNMENT VIOLATIONS:")
+        for v in violations:
+            print(v)
+    else:
+        print("\n✅ Teacher assignment valid — no constraint violations.")
+
+    return len(violations) == 0
+
+
+def print_teacher_summary(assignments, teacher_duty_count):
+    """Print per-teacher workload summary."""
+    workload = {}
+    for a in assignments:
+        t_id   = a["teacher_id"]
+        t_name = a["teacher_name"]
+        role   = a["role_required"]
+        workload.setdefault(t_id, {"name": t_name, "role": role, "duties": 0})
+        workload[t_id]["duties"] += 1
+
+    summary = [
+        {
+            "Teacher ID"  : t_id,
+            "Name"        : data["name"],
+            "Role"        : data["role"],
+            "Duties Assigned": data["duties"]
+        }
+        for t_id, data in workload.items()
+    ]
+    summary.sort(key=lambda x: x["Role"])
+
+    print("\n--- TEACHER WORKLOAD SUMMARY ---")
+    print(tabulate(summary, headers="keys", tablefmt="fancy_grid"))
+
+    # Preference satisfaction rate
+    preferred = sum(1 for a in assignments if a["cost"] == 1)
+    total     = len(assignments)
+    pct       = (preferred / total * 100) if total else 0
+    print(f"\n📊 Preference satisfaction: {preferred}/{total} duties ({pct:.1f}%) assigned to preferred slots")
+
+
+# ================================================
 # MAIN
 # ================================================
 
@@ -332,6 +608,80 @@ def main():
         "   enrolled_students                        → actual enrolled (Student_Courses sheet)\n"
         "   Room allocation and teacher assignment can join on course_id + slot.\n"
     )
+
+    # -----------------------------------------------
+    # STAGE 3 — Teacher Assignment
+    # -----------------------------------------------
+    print("\n" + "=" * 70)
+    print("       👩‍🏫  STAGE 3: TEACHER ASSIGNMENT (BIPARTITE MATCHING)  👨‍🏫")
+    print("=" * 70)
+
+    print("\n📂 Loading teacher data...")
+    teachers = load_teacher_data(input_file)
+    print(f"   ✔ {len(teachers)} teachers loaded")
+
+    # Role breakdown
+    role_counts = {}
+    for t in teachers.values():
+        role_counts[t["role"]] = role_counts.get(t["role"], 0) + 1
+    for role, count in role_counts.items():
+        print(f"   ✔ {count} {role} supervisor(s)")
+
+    print("\n📋 Generating duties from exam schedule...")
+    duties = build_duties(final_data)
+    duty_role_counts = {}
+    for d in duties:
+        duty_role_counts[d["role_required"]] = duty_role_counts.get(d["role_required"], 0) + 1
+    print(f"   ✔ {len(duties)} total duties generated")
+    for role, count in duty_role_counts.items():
+        print(f"      → {count} {role} duties")
+
+    print("\n🔗 Running minimum cost bipartite matching...")
+    assignments, unassigned, teacher_duty_count = assign_teachers(teachers, duties)
+    print(f"   ✔ {len(assignments)} duties successfully assigned")
+
+    if unassigned:
+        print(f"\n⚠️  {len(unassigned)} duties could NOT be assigned:")
+        for d in unassigned:
+            print(f"   → Duty {d['duty_id']} | Slot {d['slot']} | {d['date']} "
+                  f"| {d['session']} | Role: {d['role_required']}")
+        print("   Tip: Add more teachers of the required role to the Excel sheet.")
+
+    # Print full assignment table
+    print("\n" + "=" * 70)
+    print("         📋  FINAL TEACHER DUTY SCHEDULE  📋")
+    print("=" * 70)
+
+    display_assignments = [
+        {
+            "Slot"        : a["slot"],
+            "Date"        : a["date"],
+            "Session"     : a["session"],
+            "Course"      : a["course_id"],
+            "Role"        : a["role_required"],
+            "Teacher ID"  : a["teacher_id"],
+            "Teacher Name": a["teacher_name"],
+            "Preferred?"  : "✅ Yes" if a["cost"] == 1 else "🔸 No"
+        }
+        for a in sorted(assignments, key=lambda x: (x["slot"], x["role_required"]))
+    ]
+    print(tabulate(display_assignments, headers="keys", tablefmt="fancy_grid"))
+
+    # Workload and preference summary
+    print_teacher_summary(assignments, teacher_duty_count)
+
+    # Validation
+    validate_teacher_assignment(assignments, teacher_duty_count)
+
+    # Export teacher assignment to CSV
+    teacher_output_file = os.path.join("uploads", "teacher_duty_schedule.csv")
+    if assignments:
+        keys = list(assignments[0].keys())
+        with open(teacher_output_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(assignments)
+        print(f"\n💾 Teacher duty schedule exported → {teacher_output_file}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+duty_id,slot,date,session,course_id,role_required,teacher_id,teacher_name,cost
+11,1,27-Nov,Morning,ALL,Senior,T1,Dr. Sharma,1
+12,2,27-Nov,Afternoon,ALL,Senior,T2,Dr. Nair,1
+13,3,28-Nov,Morning,ALL,Senior,T3,Dr. Mehta,1
+14,1,27-Nov,Morning,ALL,Squad,T4,Dr. Verma,1
+15,2,27-Nov,Afternoon,ALL,Squad,T5,Dr. Reddy,1
+16,3,28-Nov,Morning,ALL,Squad,T6,Dr. Iyer,1
+1,1,27-Nov,Morning,C9,Junior,T7,Dr. Patel,1
+2,1,27-Nov,Morning,C7,Junior,T8,Dr. Gupta,1
+3,1,27-Nov,Morning,C1,Junior,T9,Dr. Khan,1
+4,1,27-Nov,Morning,C3,Junior,T10,Dr. Das,1
+5,2,27-Nov,Afternoon,C8,Junior,T11,Dr. Joshi,1
+6,2,27-Nov,Afternoon,C10,Junior,T12,Dr. Singh,1
+7,2,27-Nov,Afternoon,C2,Junior,T13,Dr. Kulkarni,1
+8,2,27-Nov,Afternoon,C4,Junior,T14,Dr. Desai,1
+10,3,28-Nov,Morning,C6,Junior,T15,Dr. Rao,1
+9,2,27-Nov,Afternoon,C5,Junior,T16,Dr. Patil,10

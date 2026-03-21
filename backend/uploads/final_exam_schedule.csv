@@ -1,11 +1,11 @@
 course_id,course_name,year,department,slot,date,session,declared_students,enrolled_students
-C6,Operating Systems,2,AIDS,1,27-Nov,Morning,19,2
 C9,Software Engineering,3,CE,1,27-Nov,Morning,20,2
+C7,Computer Networks,3,ECE,1,27-Nov,Morning,21,2
 C1,Mathematics,1,General,1,27-Nov,Morning,25,3
 C3,Chemistry,1,General,1,27-Nov,Morning,18,2
-C7,Computer Networks,3,ECE,2,27-Nov,Afternoon,21,2
+C8,Artificial Intelligence,3,AIDS,2,27-Nov,Afternoon,23,2
 C10,Discrete Mathematics,1,ENTC,2,27-Nov,Afternoon,17,2
 C2,Physics,1,General,2,27-Nov,Afternoon,20,2
 C4,Data Structures,2,IT,2,27-Nov,Afternoon,22,2
 C5,Database Management Systems,2,IT,2,27-Nov,Afternoon,24,1
-C8,Artificial Intelligence,3,AIDS,3,28-Nov,Morning,23,2
+C6,Operating Systems,2,AIDS,3,28-Nov,Morning,19,2
