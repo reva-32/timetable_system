@@ -20,12 +20,10 @@ def build_conflict_graph(student_courses):
         for course in courses:
             if course not in graph:
                 graph[course] = set()
-
     for courses in student_courses.values():
         for c1, c2 in combinations(set(courses), 2):
             graph[c1].add(c2)
             graph[c2].add(c1)
-
     return graph
 
 
@@ -43,12 +41,12 @@ def dsatur_coloring(graph):
 
     while uncolored:
         node = max(uncolored, key=lambda x: (saturation[x], degree[x]))
-
+        
         used_colors = {result[nb] for nb in graph[node] if nb in result}
         color = 0
         while color in used_colors:
             color += 1
-
+        
         result[node] = color
         uncolored.remove(node)
 
@@ -56,9 +54,49 @@ def dsatur_coloring(graph):
             if nb in uncolored:
                 nb_colors = {result[n] for n in graph[nb] if n in result}
                 saturation[nb] = len(nb_colors)
-
     return result
 
+
+def adjust_exam_dates(final_data, student_courses, slot_meta):
+    """
+    Adjusts the exam dates to ensure that if a student has registered in multiple courses,
+    those courses have exams on separate days. Assigns same day slots if next day slots
+    are not available.
+    """
+    course_dates = {}
+    next_day_slots = {1: [], 2: []}  # Assume 1 is Morning and 2 is Evening
+
+    for slot in slot_meta:
+        if slot_meta[slot]["session"] == "Morning":
+            next_day_slots[1].append(slot)
+        elif slot_meta[slot]["session"] == "Afternoon":
+            next_day_slots[2].append(slot)
+
+    for student, courses in student_courses.items():
+        assigned_slots = {course: None for course in courses}
+        for row in final_data:
+            if row["course_id"] in assigned_slots:
+                assigned_slots[row["course_id"]] = row["date"]
+
+        for course1, course2 in combinations(courses, 2):
+            if assigned_slots[course1] == assigned_slots[course2]:
+                # Check if the next day slots are available
+                if next_day_slots[1]:  # Morning slots
+                    new_slot = next_day_slots[1].pop(0)
+                    for idx, row in enumerate(final_data):
+                        if row["course_id"] == course2:
+                            final_data[idx]["slot"] = new_slot
+                            final_data[idx]["date"] = slot_meta[new_slot]["date"]
+                            final_data[idx]["session"] = slot_meta[new_slot]["session"]
+                            break
+                elif next_day_slots[2]:  # Afternoon slots
+                    new_slot = next_day_slots[2].pop(0)
+                    for idx, row in enumerate(final_data):
+                        if row["course_id"] == course2:
+                            final_data[idx]["slot"] = new_slot
+                            final_data[idx]["date"] = slot_meta[new_slot]["date"]
+                            final_data[idx]["session"] = slot_meta[new_slot]["session"]
+                            break
 
 # ================================================
 # DATA LOADING
@@ -71,18 +109,16 @@ def safe_str(val, default="N/A"):
     s = str(val).strip()
     return s if s and s.lower() not in ("nan", "none", "") else default
 
-
 def load_data(filepath):
     """
     Loads all required sheets from the Excel file.
-
+    
     Returns:
         student_courses  : dict { student_id -> [course_id, ...] }
         slot_metadata    : dict { 0-based-index -> {display_id, date, session} }
         course_metadata  : dict { course_id -> {course_name, year, students_count, department} }
         enrolled_counts  : dict { course_id -> int (actual enrolled from Student_Courses) }
     """
-
     # --- Load Sheets ---
     df_students = pd.read_excel(filepath, sheet_name="Student_Courses")
     df_slots    = pd.read_excel(filepath, sheet_name="Slots")
@@ -755,6 +791,9 @@ def main():
     # Sort: primary by slot, secondary by department, then course_id
     final_data.sort(key=lambda x: (x["slot"], x["department"], x["course_id"]))
 
+    # Adjust exam dates to avoid conflicts
+    adjust_exam_dates(final_data, student_courses, slot_meta)
+
     # -----------------------------------------------
     # Terminal Output — Full Schedule
     # -----------------------------------------------
@@ -896,7 +935,6 @@ def main():
             writer.writeheader()
             writer.writerows(assignments)
         print(f"\n💾 Teacher duty schedule exported → {teacher_output_file}")
-
 
 if __name__ == "__main__":
     main()
