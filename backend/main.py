@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import csv
+import sys
 from itertools import combinations
 from tabulate import tabulate
 import numpy as np
@@ -285,15 +286,13 @@ def load_room_data(filepath):
 
 def allocate_rooms(final_data, rooms):
     """
-    Greedy Room Allocation.
+    Best-Fit Round-Robin Room Allocation.
 
     Algorithm:
-    1. For each course in a slot, check how many students need seating
-    2. Keep adding rooms (smallest first) until total capacity >= students
-    3. One room can only be used once per slot
-
-    Constraint:
-        sum(capacity of assigned rooms) >= enrolled_students
+    1. Maintain global room usage_counter to evenly distribute usage.
+    2. Best-Fit Selection: Find smallest room >= students. Tie-break with usage_counter.
+    3. Contiguity Preference: If no single room fits, sort by descending capacity to minimize splits. Tie-break with usage_counter.
+    4. One room can only be used once per slot.
 
     Returns:
         room_assignments : list of dicts
@@ -301,6 +300,9 @@ def allocate_rooms(final_data, rooms):
     """
     room_assignments = []
     unallocated      = []
+
+    # Track how many times each room has been used globally
+    usage_counter = {r["room_id"]: 0 for r in rooms}
 
     # Track which rooms are already used in each slot
     slot_used_rooms = {}
@@ -324,18 +326,37 @@ def allocate_rooms(final_data, rooms):
 
         # Available rooms for this slot
         used_in_slot = slot_used_rooms.get(slot, set())
-        available    = [r for r in rooms if r["room_id"] not in used_in_slot]
+        
+        # Filter available rooms based on those not used in this slot
+        available = [r for r in rooms if r["room_id"] not in used_in_slot]
 
-        # Greedy selection
         assigned       = []
         total_capacity = 0
 
-        for room in available:
-            if total_capacity >= students:
-                break
-            assigned.append(room["room_id"])
-            total_capacity += room["capacity"]
-            used_in_slot.add(room["room_id"])
+        # Try Best-Fit Single Room Allocation
+        single_candidates = [r for r in available if r["capacity"] >= students]
+        
+        if single_candidates:
+            # Sort by capacity ascending (Best-Fit), then by usage_counter ascending
+            single_candidates.sort(key=lambda r: (r["capacity"], usage_counter[r["room_id"]]))
+            best_room = single_candidates[0]
+            
+            assigned.append(best_room["room_id"])
+            total_capacity += best_room["capacity"]
+            used_in_slot.add(best_room["room_id"])
+            usage_counter[best_room["room_id"]] += 1
+        else:
+            # Try Contiguity Preference (Split into minimum rooms)
+            # Sort by capacity descending (Largest first), then by usage_counter ascending
+            available.sort(key=lambda r: (-r["capacity"], usage_counter[r["room_id"]]))
+            
+            for room in available:
+                if total_capacity >= students:
+                    break
+                assigned.append(room["room_id"])
+                total_capacity += room["capacity"]
+                used_in_slot.add(room["room_id"])
+                usage_counter[room["room_id"]] += 1
 
         slot_used_rooms[slot] = used_in_slot
 
@@ -717,12 +738,16 @@ def print_teacher_summary(assignments, teacher_duty_count):
 # ================================================
 
 def main():
-    input_file  = os.path.join("uploads", "exam_data.xlsx")
-    output_file = os.path.join("uploads", "final_exam_schedule.csv")
+    if len(sys.argv) < 2:
+        print("❌ Error: No input file provided.")
+        print("   → Usage: python main.py <path_to_excel_file.xlsx>")
+        return
+
+    input_file = sys.argv[1]
+    output_file = "final_exam_schedule.csv"
 
     if not os.path.exists(input_file):
         print(f"❌ Error: '{input_file}' not found.")
-        print("   → Make sure 'exam_data.xlsx' is inside the 'uploads/' folder.")
         return
 
     print("📂 Loading data from Excel...")
@@ -853,7 +878,7 @@ def main():
     validate_room_allocation(room_assignments, unallocated_rooms)
 
     # Export room allocation to CSV
-    room_output_file = os.path.join("uploads", "room_allocation.csv")
+    room_output_file = "room_allocation.csv"
     if room_assignments:
         keys_r = list(room_assignments[0].keys())
         with open(room_output_file, "w", newline="", encoding="utf-8") as f:
@@ -927,7 +952,7 @@ def main():
     validate_teacher_assignment(assignments, teacher_duty_count)
 
     # Export teacher assignment to CSV
-    teacher_output_file = os.path.join("uploads", "teacher_duty_schedule.csv")
+    teacher_output_file = "teacher_duty_schedule.csv"
     if assignments:
         keys = list(assignments[0].keys())
         with open(teacher_output_file, "w", newline="", encoding="utf-8") as f:

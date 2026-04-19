@@ -25,10 +25,7 @@ app = Flask(
 )
 CORS(app)  # allow cross-origin requests from frontend
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
+import io
 # ================================================
 # ROUTES
 # ================================================
@@ -64,14 +61,13 @@ def generate():
     if not file.filename.endswith(".xlsx"):
         return jsonify({"error": "Only .xlsx files are supported"}), 400
 
-    filepath = os.path.join(UPLOAD_FOLDER, "exam_data.xlsx")
-    file.save(filepath)
+    file_content = file.read()
 
     # -----------------------------------------------
     # 2. Run Stage 1 — Course to Slot Assignment
     # -----------------------------------------------
     try:
-        student_courses, slot_meta, course_meta, enrolled_counts = load_data(filepath)
+        student_courses, slot_meta, course_meta, enrolled_counts = load_data(io.BytesIO(file_content))
     except Exception as e:
         return jsonify({"error": f"Error loading data: {str(e)}"}), 500
 
@@ -112,7 +108,7 @@ def generate():
     # 3. Run Stage 2 — Room Allocation
     # -----------------------------------------------
     try:
-        rooms = load_room_data(filepath)
+        rooms = load_room_data(io.BytesIO(file_content))
         room_assignments, unallocated = allocate_rooms(final_data, rooms)
     except Exception as e:
         return jsonify({"error": f"Error in room allocation: {str(e)}"}), 500
@@ -121,7 +117,7 @@ def generate():
     # 4. Run Stage 3 — Teacher Assignment
     # -----------------------------------------------
     try:
-        teachers = load_teacher_data(filepath)
+        teachers = load_teacher_data(io.BytesIO(file_content))
         duties   = build_duties(final_data)
         assignments, unassigned, teacher_duty_count = assign_teachers(teachers, duties)
     except Exception as e:
@@ -201,6 +197,6 @@ def generate():
 # ================================================
 
 if __name__ == "__main__":
-    print("🚀 Starting Flask server...")
-    print("   → Open http://127.0.0.1:5000 in your browser")
+    print("Running Flask server...")
+    print("   -> Open http://127.0.0.1:5000 in your browser")
     app.run(debug=True, port=5000)
