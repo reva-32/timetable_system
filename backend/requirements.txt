@@ -1,0 +1,9 @@
+Flask
+Flask-CORS
+pymongo
+python-dotenv
+pandas
+openpyxl
+numpy
+scipy
+tabulate

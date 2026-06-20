@@ -1,333 +1,825 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ExamSched — PICT Timetable Generator</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="index.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExamSched — PICT Timetable Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
+
 <body>
 
-<div class="orb o1"></div>
-<div class="orb o2"></div>
-<div class="orb o3"></div>
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
 
-<!-- NAV -->
-<nav>
-  <div class="nav-inner">
-    <div class="brand">
-      <div class="brand-mark">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="2" y="2" width="11" height="11" rx="3.5" fill="#6366f1"/>
-          <rect x="15" y="2" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65"/>
-          <rect x="2" y="15" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65"/>
-          <rect x="15" y="15" width="11" height="11" rx="3.5" fill="#06b6d4" opacity=".85"/>
-        </svg>
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="11" height="11" rx="3.5" fill="#6366f1" />
+            <rect x="15" y="2" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65" />
+            <rect x="2" y="15" width="11" height="11" rx="3.5" fill="#8b5cf6" opacity=".65" />
+            <rect x="15" y="15" width="11" height="11" rx="3.5" fill="#06b6d4" opacity=".85" />
+          </svg>
+        </div>
+        <span class="brand-name">Examination Portal</span>
       </div>
-      <span class="brand-name">ExamSched</span>
-    </div>
-    <div class="nav-pills">
-      <span class="npill">PICT · IT Department</span>
-      <span class="npill hi">DSM Project</span>
-    </div>
-  </div>
-</nav>
-
-<!-- UPLOAD PAGE -->
-<section id="uploadPage">
-  <div class="hero">
-    <div class="eyebrow">
-      <span class="edot"></span>
-      Graph Theory &amp; Optimization Algorithms
-    </div>
-
-    <h1>
-      Generate Your<br>
-      <span class="gt">Exam Timetable</span><br>
-      Automatically
-    </h1>
-
-    <p class="hero-sub">Upload your Excel data and watch three powerful algorithms work in sequence — eliminating conflicts, optimizing rooms, and assigning teachers with mathematical precision.</p>
-
-    <div class="astrip">
-      <div class="astep">
-        <div class="anum">STAGE 01</div>
-        <div class="aname">DSATUR Graph Coloring</div>
-        <div class="adesc">Conflict-free slot assignment</div>
-      </div>
-      <div class="aarrow">→</div>
-      <div class="astep">
-        <div class="anum">STAGE 02</div>
-        <div class="aname">Greedy Room Allocation</div>
-        <div class="adesc">Capacity-based room assignment</div>
-      </div>
-      <div class="aarrow">→</div>
-      <div class="astep">
-        <div class="anum">STAGE 03</div>
-        <div class="aname">Hungarian Algorithm</div>
-        <div class="adesc">Min-cost bipartite matching</div>
+      <div class="nav-pills">
+        <span class="npill">Academic Management</span>
+        <span class="npill hi">Timetable System</span>
       </div>
     </div>
+  </nav>
 
-    <div class="ucard">
-      <div class="uzone" id="uzone">
-        <div class="uzone-inner">
-          <div class="uico">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
+  <!-- LOGIN PAGE -->
+  <section id="loginPage">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </div>
+        <h2>Faculty Login</h2>
+        <p>Enter your institutional email to continue</p>
+      </div>
+      <div class="auth-form">
+        <div class="input-group">
+          <label for="emailInput">Institutional Email Address</label>
+          <input type="email" id="emailInput" placeholder="faculty@institution.edu" required>
+          <span class="error-msg" id="loginError"></span>
+        </div>
+        <button class="cta w-full" onclick="handleLogin()">
+          <span>Access Dashboard</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD PAGE -->
+  <section id="uploadPage" style="display:none">
+    <div class="dash-container">
+      <div class="dash-sidebar">
+        <div class="dash-user">
+          <div class="avatar" id="userAvatar">JD</div>
+          <div>
+            <div class="u-name" id="userName">Prof. Jane Doe</div>
+            <div class="u-role">Exam Coordinator</div>
           </div>
-          <p class="uprim">Drop your <strong>exam_data.xlsx</strong> here</p>
-          <p class="usec">or <span class="ulink">click to browse</span></p>
-          <input type="file" id="fileInput" accept=".xlsx" hidden>
+        </div>
+
+        <div class="dash-nav">
+          <div class="d-nav-item active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            Generator
+          </div>
+          <div class="d-nav-item" onclick="logout()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sign Out
+          </div>
         </div>
       </div>
 
-      <div class="fpill" id="fpill" style="display:none">
-        <span class="fpill-ico">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h3>Exam Settings</h3>
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Academic Year</label>
+              <select id="yearSelect" onchange="step1()">
+                <option value="" disabled selected>Select Year</option>
+                <option value="ALL">All Years</option>
+                <option value="FY">FY (First Year)</option>
+                <option value="SY">SY (Second Year)</option>
+                <option value="TY">TY (Third Year)</option>
+                <option value="B.Tech">B.Tech (Final Year)</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Department / Branch</label>
+              <select id="branchSelect" onchange="step2()" disabled>
+                <option value="" disabled selected>Select Branch</option>
+                <option value="ALL">All Branches</option>
+                <option value="CE">CE</option>
+                <option value="IT">IT</option>
+                <option value="AIDS">AIDS</option>
+                <option value="ECE">ECE</option>
+                <option value="ENTC">ENTC</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-group mt-6">
+            <label>Exam Type</label>
+            <select id="examTypeSelect" onchange="step3()" disabled>
+              <option value="" disabled selected>Select Exam Type</option>
+              <option value="Insem">Insem (Internal)</option>
+              <option value="Endsem">Endsem (Final)</option>
+              <option value="Practical">Practical</option>
+            </select>
+          </div>
+
+          <!-- Exam Start Date removed: dates are read from uploaded Excel Courses sheet -->
+
+          <div class="input-group mt-6">
+            <label>Available Time Slots</label>
+            <div class="slot-list disabled" id="slotList">
+              <p class="slot-placeholder">Select exam type to view slots</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Data Upload</h3>
+          <div class="ucard disabled" id="uploadCard">
+            <div class="uzone disabled" id="uzone">
+              <div class="uzone-inner">
+                <div class="uico">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <p class="uprim">Drop your <strong>exam_data.xlsx</strong></p>
+                <p class="usec">or <span class="ulink">browse files</span></p>
+                <input type="file" id="fileInput" accept=".xlsx" hidden disabled>
+              </div>
+            </div>
+
+            <div class="fpill" id="fpill" style="display:none">
+              <span class="fpill-ico">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </span>
+              <span id="fname" class="fpill-name"></span>
+              <button class="fpill-rm" onclick="clearFile()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <button class="cta w-full mt-6" id="genBtn" onclick="generate()" disabled>
+              <span>Generate Timetable</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- TEACHER VIEW PAGE -->
+  <section id="teacherPage" style="display:none">
+    <div class="dash-container">
+      <div class="dash-sidebar">
+        <div class="dash-user">
+          <div class="avatar" id="teacherAvatar">JD</div>
+          <div>
+            <div class="u-name" id="teacherName">Prof. Jane Doe</div>
+            <div class="u-role" id="teacherRole">Faculty Member</div>
+          </div>
+        </div>
+
+        <div class="dash-nav">
+          <div class="d-nav-item active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            My Duties
+          </div>
+          <div class="d-nav-item" onclick="logout()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sign Out
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-main">
+        <div class="dash-header">
+          <h1>My Assigned <span class="gt">Duties</span></h1>
+          <p>View your historical and upcoming exam supervision duties.</p>
+        </div>
+
+        <div class="dash-card mt-6">
+          <div class="tscroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Slot ID</th>
+                  <th>Date</th>
+                  <th>Role Assigned</th>
+                  <th>Assigned At</th>
+                </tr>
+              </thead>
+              <tbody id="teacherDutiesBody">
+                <!-- Filled dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <div id="loadScreen" style="display:none">
+    <div class="lbox">
+      <div class="lrings">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="rdot"></div>
+      </div>
+      <p class="lstage" id="lstage">Initializing...</p>
+      <div class="ltrack">
+        <div class="lbar" id="lbar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS PAGE -->
+  <section id="resultsPage" style="display:none">
+
+    <div class="rbar">
+      <div class="rbar-l">
+        <button class="backbtn" onclick="reset()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
           </svg>
-        </span>
-        <span id="fname" class="fpill-name"></span>
-        <button class="fpill-rm" onclick="clearFile()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          New Schedule
+        </button>
+        <div>
+          <div class="rtitle">Schedule Generated</div>
+          <div class="rsub" id="rsub">—</div>
+        </div>
+      </div>
+      <div class="rbar-actions">
+        <button class="cta glow" id="confirmBtn" onclick="confirmSchedule()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
           </svg>
+          Confirm & Publish
         </button>
       </div>
-
-      <button class="cta" id="genBtn" onclick="generate()" disabled>
-        <span>Generate Schedule</span>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"/>
-          <polyline points="12 5 19 12 12 19"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-</section>
-
-<!-- LOADING -->
-<div id="loadScreen" style="display:none">
-  <div class="lbox">
-    <div class="lrings">
-      <div class="ring r1"></div>
-      <div class="ring r2"></div>
-      <div class="ring r3"></div>
-      <div class="rdot"></div>
-    </div>
-    <p class="lstage" id="lstage">Initializing...</p>
-    <div class="ltrack"><div class="lbar" id="lbar"></div></div>
-  </div>
-</div>
-
-<!-- RESULTS PAGE -->
-<section id="resultsPage" style="display:none">
-
-  <div class="rbar">
-    <div class="rbar-l">
-      <button class="backbtn" onclick="reset()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        New Schedule
-      </button>
-      <div>
-        <div class="rtitle">Schedule Generated</div>
-        <div class="rsub" id="rsub">—</div>
-      </div>
-    </div>
-    <div class="sbadge">
-      <span class="sdot"></span>
-      All constraints satisfied
-    </div>
-  </div>
-
-  <!-- STAT CARDS -->
-  <div class="sgrid">
-    <div class="scard" style="--acc:#6366f1"><span class="sico">📚</span><div><div class="snum" id="sc1">—</div><div class="slabel">Courses Scheduled</div></div></div>
-    <div class="scard" style="--acc:#8b5cf6"><span class="sico">👥</span><div><div class="snum" id="sc2">—</div><div class="slabel">Students</div></div></div>
-    <div class="scard" style="--acc:#06b6d4"><span class="sico">🗓️</span><div><div class="snum" id="sc3">—</div><div class="slabel">Exam Slots</div></div></div>
-    <div class="scard" style="--acc:#10b981"><span class="sico">✅</span><div><div class="snum" id="sc4">—</div><div class="slabel">Student Conflicts</div></div></div>
-    <div class="scard" style="--acc:#f59e0b"><span class="sico">👩‍🏫</span><div><div class="snum" id="sc5">—</div><div class="slabel">Duties Assigned</div></div></div>
-    <div class="scard" style="--acc:#ec4899"><span class="sico">🎯</span><div><div class="snum" id="sc6">—</div><div class="slabel">Pref. Satisfaction</div></div></div>
-  </div>
-
-  <!-- PANEL -->
-  <div class="panel">
-    <div class="ptabs">
-      <button class="ptab on" onclick="tab('tt',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Exam Timetable
-      </button>
-      <button class="ptab" onclick="tab('rm',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Room Allocation
-      </button>
-      <button class="ptab" onclick="tab('tc',this)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Teacher Duties
-      </button>
-      <div class="pind" id="pind"></div>
     </div>
 
-    <!-- TIMETABLE TAB -->
-    <div class="tcont on" id="tc-tt">
-      <div class="tbar">
-        <div class="tbar-l">
-          <span class="stag ind">Stage 1</span>
-          <span class="tdesc">DSATUR Graph Coloring — conflict-free slot assignment</span>
+    <!-- STAT CARDS -->
+    <div class="sgrid">
+      <div class="scard" style="--acc:#6366f1"><span class="sico">📚</span>
+        <div>
+          <div class="snum" id="sc1">—</div>
+          <div class="slabel">Courses Scheduled</div>
         </div>
-        <button class="exbtn" onclick="exportCSV('tt')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export CSV
-        </button>
       </div>
-      <div class="tscroll">
-        <table id="ttbl">
-          <thead><tr><th>Course</th><th>Name</th><th>Year</th><th>Dept</th><th>Slot</th><th>Date</th><th>Session</th><th>Students</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ROOMS TAB -->
-    <div class="tcont" id="tc-rm">
-      <div class="tbar">
-        <div class="tbar-l">
-          <span class="stag cya">Stage 2</span>
-          <span class="tdesc">Greedy Room Assignment — capacity-based allocation</span>
+      <div class="scard" style="--acc:#8b5cf6"><span class="sico">👥</span>
+        <div>
+          <div class="snum" id="sc2">—</div>
+          <div class="slabel">Students</div>
         </div>
-        <button class="exbtn" onclick="exportCSV('rm')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export CSV
-        </button>
       </div>
-      <div class="tscroll">
-        <table id="rtbl">
-          <thead><tr><th>Course</th><th>Slot</th><th>Date</th><th>Session</th><th>Students</th><th>Rooms Assigned</th><th>Capacity</th><th>Status</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TEACHERS TAB -->
-    <div class="tcont" id="tc-tc">
-      <div class="tbar">
-        <div class="tbar-l">
-          <span class="stag vio">Stage 3</span>
-          <span class="tdesc">Hungarian Algorithm — minimum cost bipartite matching</span>
+      <div class="scard" style="--acc:#06b6d4"><span class="sico">🗓️</span>
+        <div>
+          <div class="snum" id="sc3">—</div>
+          <div class="slabel">Exam Slots</div>
         </div>
-        <button class="exbtn" onclick="exportCSV('tc')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export CSV
-        </button>
       </div>
-      <div class="tscroll">
-        <table id="tctbl">
-          <thead><tr><th>Slot</th><th>Date</th><th>Session</th><th>Course</th><th>Role</th><th>Teacher ID</th><th>Teacher</th><th>Preferred</th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <div class="scard" style="--acc:#10b981"><span class="sico">✅</span>
+        <div>
+          <div class="snum" id="sc4">—</div>
+          <div class="slabel">Student Conflicts</div>
+        </div>
+      </div>
+      <div class="scard" style="--acc:#f59e0b"><span class="sico">👩‍🏫</span>
+        <div>
+          <div class="snum" id="sc5">—</div>
+          <div class="slabel">Duties Assigned</div>
+        </div>
+      </div>
+      <div class="scard" style="--acc:#ec4899"><span class="sico">🎯</span>
+        <div>
+          <div class="snum" id="sc6">—</div>
+          <div class="slabel">Pref. Satisfaction</div>
+        </div>
       </div>
     </div>
-  </div>
 
-</section>
+    <!-- PANEL -->
+    <div class="panel">
+      <div class="ptabs">
+        <button class="ptab on" onclick="tab('tt',this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          Exam Timetable
+        </button>
+        <button class="ptab" onclick="tab('rm',this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          Room Allocation
+        </button>
+        <button class="ptab" onclick="tab('tc',this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Teacher Duties
+        </button>
+        <div class="pind" id="pind"></div>
+      </div>
 
-<script>
-const uzone=document.getElementById('uzone'),fi=document.getElementById('fileInput'),
-      fpill=document.getElementById('fpill'),fname=document.getElementById('fname'),
-      genBtn=document.getElementById('genBtn');
+      <!-- TIMETABLE TAB -->
+      <div class="tcont on" id="tc-tt">
+        <div class="tbar">
+          <div class="tbar-l">
+            <span class="stag ind">Stage 1</span>
+            <span class="tdesc">DSATUR Graph Coloring — conflict-free slot assignment</span>
+          </div>
+          <div class="tbar-r">
+            <button class="exbtn" onclick="exportPDF('tt')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <polyline points="9 15 12 12 15 15" />
+              </svg>
+              PDF
+            </button>
+            <button class="exbtn" onclick="exportCSV('tt')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              CSV
+            </button>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table id="ttbl">
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Name</th>
+                <th>Year</th>
+                <th>Dept</th>
+                <th>Slot</th>
+                <th>Date</th>
+                <th>Session</th>
+                <th>Students</th>
+                <th>Room</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-uzone.addEventListener('click',()=>fi.click());
-uzone.addEventListener('dragover',e=>{e.preventDefault();uzone.classList.add('drag')});
-uzone.addEventListener('dragleave',()=>uzone.classList.remove('drag'));
-uzone.addEventListener('drop',e=>{
-  e.preventDefault();uzone.classList.remove('drag');
-  const f=e.dataTransfer.files[0];
-  if(f&&f.name.endsWith('.xlsx'))setFile(f);else alert('Please upload a .xlsx file');
-});
-fi.addEventListener('change',()=>fi.files[0]&&setFile(fi.files[0]));
+      <!-- ROOMS TAB -->
+      <div class="tcont" id="tc-rm">
+        <div class="tbar">
+          <div class="tbar-l">
+            <span class="stag cya">Stage 2</span>
+            <span class="tdesc">Greedy Room Assignment — capacity-based allocation</span>
+          </div>
+          <div class="tbar-r">
+            <button class="exbtn" onclick="exportPDF('rm')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <polyline points="9 15 12 12 15 15" />
+              </svg>
+              PDF
+            </button>
+            <button class="exbtn" onclick="exportCSV('rm')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              CSV
+            </button>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table id="rtbl">
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Slot</th>
+                <th>Date</th>
+                <th>Session</th>
+                <th>Rooms Assigned</th>
+                <th>Capacity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
 
-function setFile(f){
-  fname.textContent=f.name;
-  fpill.style.display='flex';
-  uzone.style.display='none';
-  genBtn.disabled=false;
-}
-function clearFile(){
-  fi.value='';
-  fpill.style.display='none';
-  uzone.style.display='flex';
-  genBtn.disabled=true;
-}
+      <!-- TEACHERS TAB -->
+      <div class="tcont" id="tc-tc">
+        <div class="tbar">
+          <div class="tbar-l">
+            <span class="stag vio">Stage 3</span>
+            <span class="tdesc">Hungarian Algorithm — minimum cost bipartite matching</span>
+          </div>
+          <button class="exbtn" onclick="exportCSV('tc')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export CSV
+          </button>
+        </div>
+        <div class="tscroll">
+          <table id="tctbl">
+            <thead>
+              <tr>
+                <th>Slot</th>
+                <th>Date</th>
+                <th>Session</th>
+                <th>Course</th>
+                <th>Role</th>
+                <th>Teacher ID</th>
+                <th>Teacher</th>
+                <th>History</th>
+                <th>Priority</th>
+                <th>Room</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="export-actions">
+          <button class="exbtn glow" onclick="exportPDF('tc')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <polyline points="9 15 12 12 15 15" />
+            </svg>
+            Export as PDF
+          </button>
+          <button class="exbtn glow" onclick="exportCSV('tc')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export as CSV
+          </button>
+        </div>
+      </div>
+    </div>
 
-const stages=[
-  {t:'Building conflict graph…',p:12},
-  {t:'Running DSATUR coloring…',p:30},
-  {t:'Allocating rooms greedily…',p:52},
-  {t:'Running bipartite matching…',p:74},
-  {t:'Validating all constraints…',p:90},
-  {t:'Compiling final schedule…',p:100},
-];
-function startLoad(){
-  const el=document.getElementById('lstage'),bar=document.getElementById('lbar');
-  let i=0;
-  const iv=setInterval(()=>{
-    if(i>=stages.length){clearInterval(iv);return}
-    el.textContent=stages[i].t;
-    bar.style.width=stages[i].p+'%';
-    i++;
-  },600);
-  return iv;
-}
+  </section>
 
-let G=null;
-function generate(){
-  const f=fi.files[0];if(!f)return;
-  document.getElementById('loadScreen').style.display='flex';
-  const iv=startLoad();
-  const fd=new FormData();fd.append('file',f);
-  fetch('http://127.0.0.1:5000/generate',{method:'POST',body:fd})
-    .then(r=>r.json())
-    .then(d=>{
-      clearInterval(iv);
-      setTimeout(()=>{
-        document.getElementById('loadScreen').style.display='none';
-        if(d.error){alert('Error: '+d.error);return}
-        G=d;render(d);
-      },350);
-    })
-    .catch(()=>{
-      clearInterval(iv);
-      document.getElementById('loadScreen').style.display='none';
-      alert('Cannot connect to server.\nRun: python app.py');
+  <script>
+    const uzone = document.getElementById('uzone'), fi = document.getElementById('fileInput'),
+      fpill = document.getElementById('fpill'), fname = document.getElementById('fname'),
+      genBtn = document.getElementById('genBtn');
+
+    uzone.addEventListener('click', () => fi.click());
+    uzone.addEventListener('dragover', e => { e.preventDefault(); uzone.classList.add('drag') });
+    uzone.addEventListener('dragleave', () => uzone.classList.remove('drag'));
+    uzone.addEventListener('drop', e => {
+      e.preventDefault(); uzone.classList.remove('drag');
+      const f = e.dataTransfer.files[0];
+      if (f && f.name.endsWith('.xlsx')) setFile(f); else alert('Please upload a .xlsx file');
     });
-}
+    fi.addEventListener('change', () => fi.files[0] && setFile(fi.files[0]));
 
-const slotCls=['','s1c','s2c','s3c','s4c','s5c','s6c'];
-function schip(s){return`<span class="schip ${slotCls[s]||'s1c'}">Slot ${s}</span>`}
+    function setFile(f) {
+      fname.textContent = f.name;
+      fpill.style.display = 'flex';
+      uzone.style.display = 'none';
+      genBtn.disabled = false;
+    }
+    function clearFile() {
+      fi.value = '';
+      fpill.style.display = 'none';
+      uzone.style.display = 'flex';
+      genBtn.disabled = true;
+    }
 
-function render(d){
-  const s=d.summary;
-  document.getElementById('sc1').textContent=s.total_courses;
-  document.getElementById('sc2').textContent=s.total_students;
-  document.getElementById('sc3').textContent=s.slots_used;
-  document.getElementById('sc4').textContent=s.conflicts_found===0?'0 ✓':s.conflicts_found;
-  document.getElementById('sc5').textContent=s.duties_assigned+'/'+(s.duties_assigned+s.duties_failed);
-  document.getElementById('sc6').textContent=s.pref_satisfaction+'%';
-  document.getElementById('rsub').textContent=
-    s.total_courses+' courses · '+s.slots_used+' slots · '+s.total_students+' students';
+    const stages = [
+      { t: 'Building conflict graph…', p: 12 },
+      { t: 'Running DSATUR coloring…', p: 30 },
+      { t: 'Allocating rooms greedily…', p: 52 },
+      { t: 'Running bipartite matching…', p: 74 },
+      { t: 'Validating all constraints…', p: 90 },
+      { t: 'Compiling final schedule…', p: 100 },
+    ];
+    function startLoad() {
+      const el = document.getElementById('lstage'), bar = document.getElementById('lbar');
+      let i = 0;
+      const iv = setInterval(() => {
+        if (i >= stages.length) { clearInterval(iv); return }
+        el.textContent = stages[i].t;
+        bar.style.width = stages[i].p + '%';
+        i++;
+      }, 600);
+      return iv;
+    }
 
-  const tb=document.querySelector('#ttbl tbody');tb.innerHTML='';
-  d.timetable.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
-    tr.innerHTML=`
+    const originalBranchOptions = `
+  <option value="" disabled selected>Select Branch</option>
+  <option value="ALL">All Branches</option>
+  <option value="CE">CE</option>
+  <option value="IT">IT</option>
+  <option value="AIDS">AIDS</option>
+  <option value="ECE">ECE</option>
+  <option value="ENTC">ENTC</option>
+`;
+
+    function handleLogin() {
+      const email = document.getElementById('emailInput').value.trim();
+      const err = document.getElementById('loginError');
+      err.textContent = '';
+
+      if (!email) {
+        err.textContent = 'Please enter your email.';
+        return;
+      }
+
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      })
+        .then(async r => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Login failed');
+          return data;
+        })
+        .then(user => {
+          localStorage.setItem('user', JSON.stringify(user));
+          showDashboard(user);
+        })
+        .catch(error => {
+          err.textContent = error.message;
+        });
+    }
+
+    function showDashboard(user) {
+      if (user.is_admin) {
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('uploadPage').style.display = 'block';
+        document.getElementById('teacherPage').style.display = 'none';
+
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+
+        const confirmBtn = document.getElementById('confirmBtn');
+        if (confirmBtn) confirmBtn.style.display = 'inline-flex';
+
+        resetConfig();
+      } else {
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('uploadPage').style.display = 'none';
+        document.getElementById('teacherPage').style.display = 'block';
+
+        document.getElementById('teacherName').textContent = user.name;
+        document.getElementById('teacherRole').textContent = user.role + " Supervisor";
+        document.getElementById('teacherAvatar').textContent = user.name.charAt(0).toUpperCase();
+
+        const tbody = document.getElementById('teacherDutiesBody');
+        tbody.innerHTML = '';
+        if (user.history && user.history.length > 0) {
+          user.history.forEach(d => {
+            const tr = document.createElement('tr');
+            const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
+            tr.innerHTML = `
+          <td><span class="mbadge">Slot ${d.slot_id}</span></td>
+          <td>${d.exam_date}</td>
+          <td><span class="rchip ${d.role_assigned.toLowerCase()}">${d.role_assigned}</span></td>
+          <td>${assignedDate}</td>
+        `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No duties assigned yet.</td></tr>';
+        }
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      document.getElementById('uploadPage').style.display = 'none';
+      document.getElementById('teacherPage').style.display = 'none';
+      document.getElementById('resultsPage').style.display = 'none';
+      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('emailInput').value = '';
+    }
+
+    // On page load check session
+    window.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (user) {
+        showDashboard(user);
+      } else {
+        logout();
+      }
+    });
+
+    function resetConfig() {
+      document.getElementById('yearSelect').value = "";
+      const branchSelect = document.getElementById('branchSelect');
+      branchSelect.innerHTML = originalBranchOptions;
+      branchSelect.value = "";
+      branchSelect.disabled = true;
+      document.getElementById('examTypeSelect').value = "";
+      document.getElementById('examTypeSelect').disabled = true;
+      document.getElementById('slotList').classList.add('disabled');
+      document.getElementById('slotList').innerHTML = '<p class="slot-placeholder">Select exam type to view slots</p>';
+      document.getElementById('uploadCard').classList.add('disabled');
+      document.getElementById('uzone').classList.add('disabled');
+      document.getElementById('fileInput').disabled = true;
+      selectedSlots.clear();
+      clearFile();
+    }
+
+    function step1() {
+      const year = document.getElementById('yearSelect').value;
+      const branchSelect = document.getElementById('branchSelect');
+      if (year === 'FY') {
+        branchSelect.innerHTML = '<option value="ALL">FY (All Branches)</option>';
+        branchSelect.value = 'ALL';
+        branchSelect.disabled = true;
+        step2();
+      } else if (year) {
+        branchSelect.innerHTML = originalBranchOptions;
+        branchSelect.value = "";
+        branchSelect.disabled = false;
+      } else {
+        branchSelect.innerHTML = originalBranchOptions;
+        branchSelect.value = "";
+        branchSelect.disabled = true;
+      }
+    }
+
+    function step2() {
+      const branch = document.getElementById('branchSelect').value;
+      if (branch) {
+        document.getElementById('examTypeSelect').disabled = false;
+      }
+    }
+
+    function step3() {
+      const type = document.getElementById('examTypeSelect').value;
+      if (type) {
+        document.getElementById('slotList').classList.remove('disabled');
+        updateSlots();
+        document.getElementById('uploadCard').classList.remove('disabled');
+        document.getElementById('uzone').classList.remove('disabled');
+        document.getElementById('fileInput').disabled = false;
+      }
+    }
+
+    function reset() {
+      document.getElementById('resultsPage').style.display = 'none';
+      document.getElementById('uploadPage').style.display = 'block';
+      resetConfig();
+    }
+
+    const selectedSlots = new Set();
+    function updateSlots() {
+      const type = document.getElementById('examTypeSelect').value;
+      const list = document.getElementById('slotList');
+      const slots = type === 'Insem'
+        ? ['10:00 – 11:00', '14:00 – 15:00', '16:00 – 17:00']
+        : type === 'Endsem'
+          ? ['10:00 – 12:30', '14:00 – 16:30']
+          : ['12:00 – 14:00', '14:30 – 16:30', '17:00 – 19:00']; // Practical slots
+
+      list.innerHTML = slots.map(s => `
+    <div class="slot-item ${selectedSlots.has(s) ? 'active' : ''}" onclick="toggleSlot('${s}', this)">
+      ${s}
+    </div>
+  `).join('');
+    }
+
+    function toggleSlot(s, el) {
+      if (selectedSlots.has(s)) {
+        selectedSlots.delete(s);
+        el.classList.remove('active');
+      } else {
+        selectedSlots.add(s);
+        el.classList.add('active');
+      }
+    }
+
+    let G = null;
+    // exam dates are provided in the uploaded Excel; no client-side start date
+    function generate() {
+      const f = fi.files[0]; if (!f) return;
+      const year = document.getElementById('yearSelect').value;
+      const branch = document.getElementById('branchSelect').value;
+      const examType = document.getElementById('examTypeSelect').value;
+
+      document.getElementById('loadScreen').style.display = 'flex';
+      const iv = startLoad();
+
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('year', year);
+      fd.append('branch', branch);
+      fd.append('exam_type', examType);
+      // Note: selected slots/date are handled server-side now; do not send start_date
+      fd.append('selected_slots', Array.from(selectedSlots).join(','));
+
+      fetch('http://127.0.0.1:5000/generate', { method: 'POST', body: fd })
+        .then(async r => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || 'Server error');
+          return data;
+        })
+        .then(d => {
+          G = d;
+          // Dates come from the Excel upload; no client-side start date stored
+          setTimeout(() => {
+            render(d);
+            document.getElementById('loadScreen').style.display = 'none';
+            document.getElementById('uploadPage').style.display = 'none';
+            document.getElementById('resultsPage').style.display = 'block';
+          }, 1500);
+        })
+        .catch(err => {
+          document.getElementById('loadScreen').style.display = 'none';
+          alert('Generation Failed: ' + err.message);
+        });
+    }
+
+    const slotCls = ['', 's1c', 's2c', 's3c', 's4c', 's5c', 's6c'];
+    function schip(s) { return `<span class="schip ${slotCls[s] || 's1c'}">Slot ${s}</span>` }
+
+    function render(d) {
+      const s = d.summary;
+      document.getElementById('sc1').textContent = s.total_courses;
+      document.getElementById('sc2').textContent = s.total_students;
+      document.getElementById('sc3').textContent = s.slots_used;
+      document.getElementById('sc4').textContent = s.conflicts_found === 0 ? '0 ✓' : s.conflicts_found;
+      document.getElementById('sc5').textContent = s.duties_assigned + '/' + (s.duties_assigned + s.duties_failed);
+      document.getElementById('sc6').textContent = s.pref_satisfaction + '%';
+      document.getElementById('rsub').textContent =
+        s.total_courses + ' courses · ' + s.slots_used + ' slots · ' + s.total_students + ' students';
+
+      const tb = document.querySelector('#ttbl tbody'); tb.innerHTML = '';
+      d.timetable.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
+        tr.innerHTML = `
       <td><span class="mbadge">${r.course_id}</span></td>
       <td class="ncell">${r.course_name}</td>
       <td>${r.year}</td>
@@ -335,93 +827,213 @@ function render(d){
       <td>${schip(r.slot)}</td>
       <td class="mcell">${r.date}</td>
       <td>${r.session}</td>
-      <td><strong>${r.enrolled_students}</strong></td>`;
-    tb.appendChild(tr);
-  });
+      <td><strong>${r.enrolled_students}</strong></td>
+      <td class="mcell">${r.room_assigned || r['Room Assigned'] || ''}</td>`;
+        tb.appendChild(tr);
+      });
 
-  const rb=document.querySelector('#rtbl tbody');rb.innerHTML='';
-  d.room_allocation.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
-    tr.innerHTML=`
+      const rb = document.querySelector('#rtbl tbody'); rb.innerHTML = '';
+      d.room_allocation.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
+        tr.innerHTML = `
       <td><span class="mbadge">${r.course_id}</span></td>
       <td>${schip(r.slot)}</td>
       <td class="mcell">${r.date}</td>
       <td>${r.session}</td>
-      <td><strong>${r.students}</strong></td>
       <td class="mcell rcell">${r.rooms_assigned}</td>
       <td>${r.total_capacity}</td>
       <td><span class="okchip">✓ ${r.status}</span></td>`;
-    rb.appendChild(tr);
-  });
+        rb.appendChild(tr);
+      });
 
-  const tc=document.querySelector('#tctbl tbody');tc.innerHTML='';
-  d.teacher_duties.forEach((r,i)=>{
-    const tr=document.createElement('tr');
-    tr.className='ri';tr.style.animationDelay=(i*28)+'ms';
-    const rl=r.role.toLowerCase();
-    tr.innerHTML=`
+      const tc = document.querySelector('#tctbl tbody'); tc.innerHTML = '';
+      d.teacher_duties.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
+        const rl = r.role.toLowerCase();
+        tr.innerHTML = `
       <td>${schip(r.slot)}</td>
       <td class="mcell">${r.date}</td>
       <td>${r.session}</td>
       <td><span class="mbadge">${r.course_id}</span></td>
       <td><span class="rchip ${rl}">${r.role}</span></td>
       <td class="mcell">${r.teacher_id}</td>
-      <td>${r.teacher_name}</td>
-      <td>${r.preferred?'<span class="pyes">✓ Yes</span>':'<span class="pno">— No</span>'}</td>`;
-    tc.appendChild(tr);
-  });
+      <td>
+        <div class="t-info">
+          <span class="t-name">${r.teacher_name}</span>
+        </div>
+      </td>
+      <td><span class="hbadge">${r.last_role}</span></td>
+      <td>${(r.is_priority === 'Yes' || r.is_priority === true) ? '<span class="pyes">✓ Yes</span>' : '<span class="pno">— No</span>'}</td>
+      <td class="mcell">${r.room_assigned || r['Room Assigned'] || ''}</td>`;
+        tc.appendChild(tr);
+      });
 
-  document.getElementById('uploadPage').style.display='none';
-  document.getElementById('resultsPage').style.display='block';
-  setTimeout(()=>moveInd(document.querySelector('.ptab.on')),80);
-}
+      document.getElementById('uploadPage').style.display = 'none';
+      document.getElementById('resultsPage').style.display = 'block';
+      setTimeout(() => moveInd(document.querySelector('.ptab.on')), 80);
+    }
 
-function tab(name,btn){
-  document.querySelectorAll('.tcont').forEach(t=>t.classList.remove('on'));
-  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('tc-'+name).classList.add('on');
-  btn.classList.add('on');
-  moveInd(btn);
-}
-function moveInd(btn){
-  if(!btn)return;
-  const ind=document.getElementById('pind');
-  ind.style.left=btn.offsetLeft+'px';
-  ind.style.width=btn.offsetWidth+'px';
-}
-window.addEventListener('resize',()=>moveInd(document.querySelector('.ptab.on')));
+    function tab(name, btn) {
+      document.querySelectorAll('.tcont').forEach(t => t.classList.remove('on'));
+      document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'));
+      document.getElementById('tc-' + name).classList.add('on');
+      btn.classList.add('on');
+      moveInd(btn);
+    }
+    function moveInd(btn) {
+      if (!btn) return;
+      const ind = document.getElementById('pind');
+      ind.style.left = btn.offsetLeft + 'px';
+      ind.style.width = btn.offsetWidth + 'px';
+    }
+    window.addEventListener('resize', () => moveInd(document.querySelector('.ptab.on')));
 
-function exportCSV(type){
-  if(!G)return;
-  let rows=[],fn='';
-  if(type==='tt'){
-    fn='exam_timetable.csv';
-    rows=[['course_id','course_name','year','department','slot','date','session','enrolled_students'],
-          ...G.timetable.map(r=>[r.course_id,r.course_name,r.year,r.department,r.slot,r.date,r.session,r.enrolled_students])];
-  }else if(type==='rm'){
-    fn='room_allocation.csv';
-    rows=[['course_id','slot','date','session','students','rooms_assigned','total_capacity','status'],
-          ...G.room_allocation.map(r=>[r.course_id,r.slot,r.date,r.session,r.students,r.rooms_assigned,r.total_capacity,r.status])];
-  }else{
-    fn='teacher_duties.csv';
-    rows=[['slot','date','session','course_id','role','teacher_id','teacher_name','preferred'],
-          ...G.teacher_duties.map(r=>[r.slot,r.date,r.session,r.course_id,r.role,r.teacher_id,r.teacher_name,r.preferred?'Yes':'No'])];
-  }
-  const a=Object.assign(document.createElement('a'),{
-    href:URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'})),
-    download:fn
-  });
-  a.click();URL.revokeObjectURL(a.href);
-}
+    function resolveDate(dayLabel) {
+      // Convert "Day N" to an actual calendar date using the start_date stored globally
+      if (!window._examStartDate) return dayLabel;
+      const match = String(dayLabel).match(/Day\s*(\d+)/i);
+      if (!match) return dayLabel; // already a real date string, return as-is
+      const dayOffset = parseInt(match[1], 10) - 1;
+      const base = new Date(window._examStartDate);
+      base.setDate(base.getDate() + dayOffset);
+      return base.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
 
-function reset(){
-  document.getElementById('resultsPage').style.display='none';
-  document.getElementById('uploadPage').style.display='block';
-  clearFile();G=null;
-}
+    function exportCSV(type) {
+      if (!G) return;
+      let rows = [], fn = '';
+      if (type === 'tt') {
+        fn = 'exam_timetable.csv';
+        rows = [['course_id', 'course_name', 'year', 'department', 'slot', 'date', 'enrolled_students', 'room_assigned'],
+        ...G.timetable.map(r => [
+          r.course_id,
+          `"${r.course_name}"`,
+          r.year,
+          r.department,
+          r.slot,
+          resolveDate(r.date),
+          r.enrolled_students,
+          (r.room_assigned || r['Room Assigned'] || '')
+        ])];
+      } else if (type === 'rm') {
+        fn = 'room_allocation.csv';
+        rows = [['course_id', 'slot', 'date', 'rooms_assigned', 'total_capacity', 'status'],
+        ...G.room_allocation.map(r => [
+          r.course_id,
+          r.slot,
+          resolveDate(r.date),
+          `"${r.rooms_assigned}"`,
+          r.total_capacity,
+          r.status
+        ])];
+      } else {
+        fn = 'teacher_duties.csv';
+        rows = [['slot', 'date', 'course_id', 'role', 'teacher_id', 'teacher_name', 'is_priority', 'room_assigned'],
+        ...G.teacher_duties.map(r => [
+          r.slot,
+          resolveDate(r.date),
+          r.course_id,
+          r.role,
+          r.teacher_id,
+          `"${r.teacher_name}"`,
+          (r.is_priority === 'Yes' || r.is_priority === true) ? 'Yes' : 'No',
+          (r.room_assigned || r['Room Assigned'] || '')
+        ])];
+      }
+      const csvContent = rows.map(r => r.join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })),
+        download: fn
+      });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
 
-setTimeout(()=>moveInd(document.querySelector('.ptab.on')),150);
-</script>
+    function exportPDF(type) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l', 'mm', 'a4');
+
+      const titles = { tt: 'Exam Timetable', rm: 'Room Allocation', tc: 'Teacher Duties' };
+      const tables = { tt: '#ttbl', rm: '#rtbl', tc: '#tctbl' };
+
+      doc.setFont("Inter", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(30, 41, 59);
+      doc.text(titles[type], 14, 20);
+
+      doc.setFontSize(10);
+      doc.setFont("Inter", "normal");
+      doc.setTextColor(100);
+      doc.text(`Generated on ${new Date().toLocaleString()} | ExamSched System`, 14, 28);
+
+      doc.autoTable({
+        html: tables[type],
+        startY: 35,
+        margin: { top: 35, left: 14, right: 14, bottom: 20 },
+        styles: {
+          fontSize: 8,
+          cellPadding: 4,
+          font: "helvetica",
+          textColor: [51, 65, 85],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1
+        },
+        headStyles: {
+          fillColor: [99, 102, 241],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        didDrawPage: function (data) {
+          // Footer
+          doc.setFontSize(8);
+          doc.text(`Page ${doc.internal.getNumberOfPages()}`, data.settings.margin.left, doc.internal.pageSize.height - 10);
+        }
+      });
+
+      doc.save(`${titles[type].toLowerCase().replace(/ /g, '_')}_${new Date().getTime()}.pdf`);
+    }
+
+    function confirmSchedule() {
+      if (!G) return;
+      const btn = document.getElementById('confirmBtn');
+      const oldText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Publishing...</span>';
+
+      fetch('http://127.0.0.1:5000/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignments: G.teacher_duties,
+          department: document.getElementById('branchSelect').value
+        })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            alert('Schedule confirmed and faculty history updated!' + (d.reset_triggered ? '\n\n🔄 Fairness cycle complete. All flags have been reset.' : ''));
+            btn.innerHTML = '<span>Published Successfully ✓</span>';
+            btn.style.background = '#10b981';
+          } else {
+            alert('Error: ' + d.error);
+            btn.disabled = false;
+            btn.innerHTML = oldText;
+          }
+        })
+        .catch(err => {
+          alert('Connection error');
+          btn.disabled = false;
+          btn.innerHTML = oldText;
+        });
+    }
+
+    setTimeout(() => moveInd(document.querySelector('.ptab.on')), 150);
+  </script>
 </body>
+
 </html>

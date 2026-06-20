@@ -11,29 +11,54 @@ from scipy.optimize import linear_sum_assignment
 # CORE ALGORITHM LOGIC
 # ================================================
 
-def build_conflict_graph(student_courses):
+def build_conflict_graph(student_courses, all_courses=None):
     """
     Build conflict graph: two courses conflict if ANY student is enrolled in both.
-    These conflicting courses CANNOT be in the same slot.
     """
     graph = {}
+    if all_courses:
+        # Initialize graph only for the specified subset of courses
+        for c in all_courses:
+            graph[c] = set()
+
+        # Only consider student-enrollments that include two or more courses
+        # from the provided all_courses set; this prevents cross-group edges
+        for courses in student_courses.values():
+            # keep only courses that are in our group
+            relevant = [c for c in courses if c in graph]
+            for c1, c2 in combinations(set(relevant), 2):
+                graph[c1].add(c2)
+                graph[c2].add(c1)
+        return graph
+
+    # Fallback: build graph from all encountered student courses
     for courses in student_courses.values():
         for course in courses:
             if course not in graph:
                 graph[course] = set()
     for courses in student_courses.values():
         for c1, c2 in combinations(set(courses), 2):
-            graph[c1].add(c2)
-            graph[c2].add(c1)
+            if c1 in graph and c2 in graph:
+                graph[c1].add(c2)
+                graph[c2].add(c1)
+    return graph
+
+    # No all_courses supplied: discover nodes from student_courses
+    for courses in student_courses.values():
+        for course in courses:
+            if course not in graph:
+                graph[course] = set()
+    for courses in student_courses.values():
+        for c1, c2 in combinations(set(courses), 2):
+            if c1 in graph and c2 in graph:
+                graph[c1].add(c2)
+                graph[c2].add(c1)
     return graph
 
 
 def dsatur_coloring(graph):
     """
-    DSATUR Algorithm:
-    - Saturation degree = number of distinct colors in a node's neighbors
-    - Always color the node with the highest saturation (ties broken by degree)
-    - Guarantees no two conflicting courses share the same slot (color)
+    DSATUR Algorithm for conflict-free slot assignment.
     """
     result = {}
     saturation = {node: 0 for node in graph}
@@ -51,26 +76,23 @@ def dsatur_coloring(graph):
         result[node] = color
         uncolored.remove(node)
 
-        for nb in graph[node]:
-            if nb in uncolored:
-                nb_colors = {result[n] for n in graph[nb] if n in result}
-                saturation[nb] = len(nb_colors)
+        # Update saturation of neighbors
+        for neighbor in graph[node]:
+            if neighbor in uncolored:
+                neighbor_colors = {result[nb] for nb in graph[neighbor] if nb in result}
+                saturation[neighbor] = len(neighbor_colors)
     return result
 
 
 def adjust_exam_dates(final_data, student_courses, slot_meta):
     """
-    Adjusts the exam dates to ensure that if a student has registered in multiple courses,
-    those courses have exams on separate days. Assigns same day slots if next day slots
-    are not available.
+    Ensure students with multiple exams have them on separate days if possible.
     """
-    course_dates = {}
-    next_day_slots = {1: [], 2: []}  # Assume 1 is Morning and 2 is Evening
-
-    for slot in slot_meta:
-        if slot_meta[slot]["session"] == "Morning":
+    next_day_slots = {1: [], 2: []}
+    for slot, meta in slot_meta.items():
+        if meta["session"] == "Morning":
             next_day_slots[1].append(slot)
-        elif slot_meta[slot]["session"] == "Afternoon":
+        elif meta["session"] == "Afternoon":
             next_day_slots[2].append(slot)
 
     for student, courses in student_courses.items():
@@ -81,885 +103,389 @@ def adjust_exam_dates(final_data, student_courses, slot_meta):
 
         for course1, course2 in combinations(courses, 2):
             if assigned_slots[course1] == assigned_slots[course2]:
-                # Check if the next day slots are available
-                if next_day_slots[1]:  # Morning slots
+                if next_day_slots[1]:
                     new_slot = next_day_slots[1].pop(0)
                     for idx, row in enumerate(final_data):
                         if row["course_id"] == course2:
-                            final_data[idx]["slot"] = new_slot
+                            final_data[idx]["slot"] = slot_meta[new_slot]["display_id"]
                             final_data[idx]["date"] = slot_meta[new_slot]["date"]
                             final_data[idx]["session"] = slot_meta[new_slot]["session"]
                             break
-                elif next_day_slots[2]:  # Afternoon slots
+                elif next_day_slots[2]:
                     new_slot = next_day_slots[2].pop(0)
                     for idx, row in enumerate(final_data):
                         if row["course_id"] == course2:
-                            final_data[idx]["slot"] = new_slot
+                            final_data[idx]["slot"] = slot_meta[new_slot]["display_id"]
                             final_data[idx]["date"] = slot_meta[new_slot]["date"]
                             final_data[idx]["session"] = slot_meta[new_slot]["session"]
                             break
+
 
 # ================================================
 # DATA LOADING
 # ================================================
 
 def safe_str(val, default="N/A"):
-    """Convert value to string, replacing NaN/None with default."""
     if pd.isna(val) if not isinstance(val, str) else False:
         return default
     s = str(val).strip()
     return s if s and s.lower() not in ("nan", "none", "") else default
 
-def load_data(filepath):
-    """
-    Loads all required sheets from the Excel file.
-    
-    Returns:
-        student_courses  : dict { student_id -> [course_id, ...] }
-        slot_metadata    : dict { 0-based-index -> {display_id, date, session} }
-        course_metadata  : dict { course_id -> {course_name, year, students_count, department} }
-        enrolled_counts  : dict { course_id -> int (actual enrolled from Student_Courses) }
-    """
-    # --- Load Sheets ---
-    df_students = pd.read_excel(filepath, sheet_name="Student_Courses")
-    df_slots    = pd.read_excel(filepath, sheet_name="Slots")
-    df_courses  = pd.read_excel(filepath, sheet_name="Courses")
 
-    # -----------------------------------------------
-    # 1. Student -> Courses Mapping
-    # -----------------------------------------------
+def safe_id(val, default="N/A"):
+    """
+    Safely convert numeric IDs (int or float) to clean strings.
+    Prevents '1.0' vs '1' mismatch.
+    """
+    if pd.isna(val) if not isinstance(val, str) else False:
+        return default
+    try:
+        # Strip .0 by casting to int
+        return str(int(float(val)))
+    except (ValueError, TypeError):
+        s = str(val).strip()
+        return s if s and s.lower() not in ("nan", "none", "") else default
+
+
+def load_data(filepath):
+    df_students = pd.read_excel(filepath, sheet_name="Student_Courses")
+    df_courses  = pd.read_excel(filepath, sheet_name="Courses")
+    try:
+        df_slots = pd.read_excel(filepath, sheet_name="Slots")
+    except Exception:
+        df_slots = None
+
     student_courses = {}
     for _, row in df_students.iterrows():
-        s_id = safe_str(row["student_id"])
-        c_id = safe_str(row["course_id"])
+        s_id = safe_id(row["student_id"])
+        c_id = safe_id(row["course_id"])
         if s_id != "N/A" and c_id != "N/A":
             student_courses.setdefault(s_id, []).append(c_id)
 
-    # -----------------------------------------------
-    # 2. Actual Enrollment Count per Course
-    #    (from Student_Courses sheet — this is the TRUE count)
-    # -----------------------------------------------
     enrolled_counts = {}
     for courses in student_courses.values():
         for c in courses:
             enrolled_counts[c] = enrolled_counts.get(c, 0) + 1
 
-    # -----------------------------------------------
-    # 3. Slot Metadata (0-based index used internally)
-    # -----------------------------------------------
     slot_metadata = {}
-    for _, row in df_slots.iterrows():
-        try:
-            slot_id = int(row["slot_id"])
-        except (ValueError, TypeError):
-            continue
+    if df_slots is not None:
+        if "slot_id" not in df_slots.columns:
+            df_slots = df_slots.reset_index(drop=True)
+            df_slots.insert(0, "slot_id", range(1, len(df_slots) + 1))
 
-        idx = slot_id - 1  # Convert to 0-based for DSATUR mapping
+        for i, row in df_slots.iterrows():
+            try:
+                slot_id = int(row["slot_id"])
+            except (ValueError, TypeError, KeyError):
+                continue
 
-        # Normalize date: handle both "27-Nov" strings and datetime objects
-        raw_date = row["date"]
-        if isinstance(raw_date, pd.Timestamp):
-            date_str = raw_date.strftime("%d-%b")     # e.g. "27-Nov"
-        else:
-            date_str = str(raw_date).strip().split(" ")[0]  # clean any time suffix
+            idx = slot_id - 1
+            raw_date = row["date"]
+            if hasattr(raw_date, "strftime"):
+                date_str = raw_date.strftime("%d-%b")
+            else:
+                date_str = str(raw_date)
 
-        slot_metadata[idx] = {
-            "display_id" : slot_id,
-            "date"       : date_str,
-            "session"    : safe_str(row["session"])
-        }
+            slot_metadata[idx] = {
+                "display_id": slot_id,
+                "date": date_str,
+                "session": str(row["session"])
+            }
 
-    # -----------------------------------------------
-    # 4. Course Metadata (declared info from Courses sheet)
-    # -----------------------------------------------
     course_metadata = {}
     for _, row in df_courses.iterrows():
-        c_id = safe_str(row["course_id"])
-        if c_id == "N/A":
-            continue
-
-        # students_count: declared count (official class size)
+        c_id = safe_id(row["course_id"])
+        if c_id == "N/A": continue
         try:
             declared = int(row["students_count"])
         except (ValueError, TypeError):
             declared = 0
 
+        # Parse exam date if provided in the Courses sheet (accept 'exam_date' or 'date')
+        raw_date = None
+        if "exam_date" in row.index:
+            raw_date = row.get("exam_date")
+        elif "date" in row.index:
+            raw_date = row.get("date")
+        elif "Date" in row.index:
+            raw_date = row.get("Date")
+        exam_date_str = None
+        if raw_date is not None and raw_date not in ("", None) and not pd.isna(raw_date):
+            try:
+                if hasattr(raw_date, 'strftime'):
+                    exam_date_str = raw_date.strftime("%d-%b-%Y")
+                else:
+                    # Try to parse string-like dates
+                    parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
+                    if not pd.isna(parsed):
+                        exam_date_str = parsed.strftime("%d-%b-%Y")
+                    else:
+                        exam_date_str = str(raw_date).strip()
+            except Exception:
+                exam_date_str = str(raw_date).strip()
+
+        # Optional session column in Courses sheet
+        session = safe_str(row.get("session", "General"), default="General")
+
         course_metadata[c_id] = {
             "course_name"    : safe_str(row.get("course_name", ""), default="Unknown"),
-            "year"           : safe_str(row.get("year", ""), default="N/A"),
+            "year"           : safe_id(row.get("year", ""), default="N/A"),
             "students_count" : declared,
-            "department"     : safe_str(row.get("department", ""), default="General")
+            "department"     : safe_str(row.get("department", ""), default="General"),
+            "exam_date"      : exam_date_str,
+            "session"        : session
         }
 
     return student_courses, slot_metadata, course_metadata, enrolled_counts
 
 
 # ================================================
-# VALIDATION HELPERS
-# ================================================
-
-def validate_no_conflicts(student_courses, coloring):
-    """
-    Post-scheduling validation:
-    Check that no student has two exams in the SAME slot.
-    Prints any violations found.
-    """
-    violations = []
-    for student, courses in student_courses.items():
-        slots_taken = {}
-        for course in courses:
-            slot = coloring.get(course)
-            if slot is None:
-                continue
-            if slot in slots_taken:
-                violations.append(
-                    f"  ⚠️  {student}: {course} and {slots_taken[slot]} both in slot {slot + 1}"
-                )
-            else:
-                slots_taken[slot] = course
-
-    if violations:
-        print("\n🚨 CONFLICT VIOLATIONS FOUND:")
-        for v in violations:
-            print(v)
-    else:
-        print("\n✅ Zero student conflicts — every student has at most 1 exam per slot.")
-    return len(violations) == 0
-
-
-def print_slot_summary(final_data, total_slots):
-    """Print a per-slot summary table showing which courses are grouped together."""
-    slot_groups = {}
-    for row in final_data:
-        key = (row["slot"], row["date"], row["session"])
-        slot_groups.setdefault(key, []).append(row["course_id"])
-
-    summary = []
-    for (slot, date, session), courses in sorted(slot_groups.items()):
-        summary.append({
-            "Slot"    : slot,
-            "Date"    : date,
-            "Session" : session,
-            "Courses" : ", ".join(sorted(courses)),
-            "Count"   : len(courses)
-        })
-
-    print("\n--- SLOT UTILIZATION SUMMARY ---")
-    print(tabulate(summary, headers="keys", tablefmt="fancy_grid"))
-    print(f"\n📅 Total Slots Used   : {total_slots}")
-    print(f"📚 Total Courses      : {sum(s['Count'] for s in summary)}")
-
-
-
-# ================================================
-# STAGE 2 — ROOM ALLOCATION (GREEDY ASSIGNMENT)
+# STAGE 2 — ROOM ALLOCATION
 # ================================================
 
 def load_room_data(filepath):
-    """
-    Load Rooms sheet from Excel.
-
-    Returns:
-        rooms : list of dicts { room_id, capacity }
-                sorted by capacity in ascending order
-    """
     df_rooms = pd.read_excel(filepath, sheet_name="Rooms")
-
     rooms = []
     for _, row in df_rooms.iterrows():
+        r_id = safe_str(row["room_id"])
         try:
             capacity = int(row["capacity"])
-        except (ValueError, TypeError):
-            capacity = 0
-
-        room_id = safe_str(row["room_id"])
-        if room_id != "N/A" and capacity > 0:
-            rooms.append({
-                "room_id" : room_id,
-                "capacity": capacity
-            })
-
-    # Sort rooms by capacity ascending
+            dept = safe_str(row.get("department", "General"))
+            rooms.append({"room_id": r_id, "capacity": capacity, "department": dept})
+        except: continue
     rooms.sort(key=lambda x: x["capacity"])
     return rooms
 
 
 def allocate_rooms(final_data, rooms):
-    """
-    Best-Fit Round-Robin Room Allocation.
-
-    Algorithm:
-    1. Maintain global room usage_counter to evenly distribute usage.
-    2. Best-Fit Selection: Find smallest room >= students. Tie-break with usage_counter.
-    3. Contiguity Preference: If no single room fits, sort by descending capacity to minimize splits. Tie-break with usage_counter.
-    4. One room can only be used once per slot.
-
-    Returns:
-        room_assignments : list of dicts
-        unallocated      : list of course dicts where no valid assignment found
-    """
     room_assignments = []
-    unallocated      = []
-
-    # Track how many times each room has been used globally
+    unallocated = []
     usage_counter = {r["room_id"]: 0 for r in rooms}
-
-    # Track which rooms are already used in each slot
+    # Track used rooms per unique (date, slot) combination
     slot_used_rooms = {}
 
-    # Sort by slot, then by student count descending (larger courses get priority)
-    sorted_data = sorted(
-        final_data,
-        key=lambda x: (x["slot"], -x["enrolled_students"])
-    )
+    # Sort by date then slot then descending students so larger groups get first pick
+    sorted_data = sorted(final_data, key=lambda x: (x.get("date", ""), x.get("slot", 0), -x.get("enrolled_students", 0)))
 
     for row in sorted_data:
-        slot      = row["slot"]
-        course_id = row["course_id"]
-        students  = row["enrolled_students"]
-        date      = row["date"]
-        session   = row["session"]
-
-        # Fallback to declared count if enrolled is 0
-        if students == 0:
-            students = row.get("declared_students", 0)
-
-        # Available rooms for this slot
-        used_in_slot = slot_used_rooms.get(slot, set())
-        
-        # Filter available rooms based on those not used in this slot
+        students = row.get("enrolled_students", 0)
+        slot = row.get("slot")
+        date = row.get("date")
+        if students == 0: students = row.get("declared_students", 0)
+        slot_key = (date, slot)
+        used_in_slot = slot_used_rooms.setdefault(slot_key, set())
         available = [r for r in rooms if r["room_id"] not in used_in_slot]
+        available.sort(key=lambda r: (r["capacity"], usage_counter[r["room_id"]]))
 
-        assigned       = []
-        total_capacity = 0
+        assigned = []
+        total_cap = 0
+        temp_students = students
 
-        # Try Best-Fit Single Room Allocation
-        single_candidates = [r for r in available if r["capacity"] >= students]
-        
-        if single_candidates:
-            # Sort by capacity ascending (Best-Fit), then by usage_counter ascending
-            single_candidates.sort(key=lambda r: (r["capacity"], usage_counter[r["room_id"]]))
-            best_room = single_candidates[0]
-            
-            assigned.append(best_room["room_id"])
-            total_capacity += best_room["capacity"]
-            used_in_slot.add(best_room["room_id"])
-            usage_counter[best_room["room_id"]] += 1
+        # First try: find the smallest single room that fits all students
+        single_fit = [r for r in available if r["capacity"] >= temp_students]
+        if single_fit:
+            best = min(single_fit, key=lambda r: (r["capacity"], usage_counter[r["room_id"]]))
+            assigned = [best["room_id"]]
+            total_cap = best["capacity"]
+            used_in_slot.add(best["room_id"])
+            usage_counter[best["room_id"]] += 1
         else:
-            # Try Contiguity Preference (Split into minimum rooms)
-            # Sort by capacity descending (Largest first), then by usage_counter ascending
-            available.sort(key=lambda r: (-r["capacity"], usage_counter[r["room_id"]]))
-            
-            for room in available:
-                if total_capacity >= students:
-                    break
-                assigned.append(room["room_id"])
-                total_capacity += room["capacity"]
-                used_in_slot.add(room["room_id"])
-                usage_counter[room["room_id"]] += 1
+            # Fallback: combine rooms (previous behavior)
+            while temp_students > 0 and available:
+                # pick largest available (to reduce number of rooms) but prefer least used
+                best_room = max(available, key=lambda r: (r["capacity"], -usage_counter[r["room_id"]]))
+                assigned.append(best_room["room_id"])
+                total_cap += best_room["capacity"]
+                temp_students -= best_room["capacity"]
+                used_in_slot.add(best_room["room_id"])
+                usage_counter[best_room["room_id"]] += 1
+                available = [r for r in available if r["room_id"] not in used_in_slot]
 
-        slot_used_rooms[slot] = used_in_slot
-
-        if total_capacity >= students:
-            room_assignments.append({
-                "course_id"     : course_id,
-                "slot"          : slot,
-                "date"          : date,
-                "session"       : session,
-                "students"      : students,
-                "rooms_assigned": ", ".join(assigned),
-                "total_capacity": total_capacity,
-                "status"        : "Allocated"
-            })
-        else:
-            unallocated.append({
-                "course_id"     : course_id,
-                "slot"          : slot,
-                "date"          : date,
-                "session"       : session,
-                "students"      : students,
-                "rooms_assigned": ", ".join(assigned) if assigned else "None",
-                "total_capacity": total_capacity,
-                "status"        : "Insufficient capacity"
-            })
+        res = {
+            **row,
+            "rooms_assigned": ", ".join(assigned) if assigned else "None",
+            "total_capacity": total_cap,
+            "status": "Allocated" if total_cap >= students else "Partial"
+        }
+        room_assignments.append(res)
+        if total_cap < students: unallocated.append(res)
 
     return room_assignments, unallocated
 
 
-def validate_room_allocation(room_assignments, unallocated):
-    """
-    Post-allocation validation:
-    1. Total capacity >= students for every course
-    2. No room used twice in the same slot
-    """
-    violations = []
-
-    # Check capacity constraint
-    for a in room_assignments:
-        if a["total_capacity"] < a["students"]:
-            violations.append(
-                f"  ⚠️  {a['course_id']} Slot {a['slot']}: "
-                f"capacity {a['total_capacity']} < students {a['students']}"
-            )
-
-    # Check room reuse within same slot
-    slot_room_map = {}
-    for a in room_assignments:
-        slot       = a["slot"]
-        rooms_list = [r.strip() for r in a["rooms_assigned"].split(",")]
-        for room in rooms_list:
-            key = (slot, room)
-            if key in slot_room_map:
-                violations.append(
-                    f"  ⚠️  Room {room} used twice in Slot {slot}: "
-                    f"{slot_room_map[key]} and {a['course_id']}"
-                )
-            else:
-                slot_room_map[key] = a["course_id"]
-
-    if violations:
-        print("\n🚨 ROOM ALLOCATION VIOLATIONS:")
-        for v in violations:
-            print(v)
-    else:
-        print("\n✅ Room allocation valid — all capacity constraints satisfied.")
-
-    if unallocated:
-        print(f"\n⚠️  {len(unallocated)} course(s) could not be fully allocated:")
-        for u in unallocated:
-            print(f"   → {u['course_id']} needs {u['students']} seats, "
-                  f"only {u['total_capacity']} available")
-        print("   Tip: Add more rooms or increase capacities in Excel.")
-
-    return len(violations) == 0 and len(unallocated) == 0
-
-
-def print_room_summary(room_assignments):
-    """Print room allocation summary table."""
-    print("\n--- ROOM ALLOCATION SUMMARY ---")
-    display = [
-        {
-            "Course"        : a["course_id"],
-            "Slot"          : a["slot"],
-            "Date"          : a["date"],
-            "Session"       : a["session"],
-            "Students"      : a["students"],
-            "Rooms Assigned": a["rooms_assigned"],
-            "Total Capacity": a["total_capacity"],
-            "Status"        : a["status"]
-        }
-        for a in sorted(room_assignments, key=lambda x: (x["slot"], x["course_id"]))
-    ]
-    print(tabulate(display, headers="keys", tablefmt="fancy_grid"))
-
-    total_students = sum(a["students"] for a in room_assignments)
-    total_capacity = sum(a["total_capacity"] for a in room_assignments)
-    utilization    = (total_students / total_capacity * 100) if total_capacity else 0
-    print(f"\n📊 Overall room utilization: {total_students}/{total_capacity} "
-          f"seats filled ({utilization:.1f}%)")
-
-
 # ================================================
-# STAGE 3 — TEACHER ASSIGNMENT (BIPARTITE MATCHING)
+# STAGE 3 — TEACHER ASSIGNMENT
 # ================================================
 
 def load_teacher_data(filepath):
-    """
-    Load Teachers and Preferences sheets from Excel.
-
-    Returns:
-        teachers : dict { teacher_id -> {name, role, preferred_slots: set} }
-    """
-    df_teachers    = pd.read_excel(filepath, sheet_name="Teachers")
-    df_preferences = pd.read_excel(filepath, sheet_name="Preferences")
-
-    # Build preference map: teacher_id -> set of preferred slot display IDs
+    df_teachers = pd.read_excel(filepath, sheet_name="Teachers")
+    df_prefs = pd.read_excel(filepath, sheet_name="Preferences")
+    
     pref_map = {}
-    for _, row in df_preferences.iterrows():
-        t_id = str(row["teacher_id"]).strip()
-        raw  = str(row["preferred_slots"]).strip()
-        # Stored as "1,2,3" strings
+    for _, row in df_prefs.iterrows():
+        t_id = safe_id(row["teacher_id"])
+        raw = str(row.get("preferred_slots", ""))
         try:
             slots = {int(s.strip()) for s in raw.split(",") if s.strip().isdigit()}
-        except Exception:
-            slots = set()
+        except: slots = set()
         pref_map[t_id] = slots
 
     teachers = {}
     for _, row in df_teachers.iterrows():
-        t_id   = str(row["teacher_id"]).strip()
-        t_name = str(row["name"]).strip()
-        t_role = str(row["role"]).strip()   # "Senior" | "Squad" | "Junior"
+        t_id = safe_id(row["teacher_id"])
         teachers[t_id] = {
-            "name"            : t_name,
-            "role"            : t_role,
-            "preferred_slots" : pref_map.get(t_id, set())
+            "id": t_id,
+            "name": safe_str(row["name"]),
+            "role": safe_str(row["role"]),
+            "department": safe_str(row.get("department", "General")),
+            "preferred_slots": pref_map.get(t_id, set())
         }
-
     return teachers
 
 
-def build_duties(final_data):
-    """
-    Generate one duty per (slot, course) combination from the exam schedule.
-    Each duty requires exactly ONE Junior supervisor inside the room.
-    Senior and Squad duties are generated per unique slot.
-
-    Returns:
-        duties : list of dicts
-            { duty_id, slot, date, session, course_id, role_required }
-    """
+def build_duties(final_data, room_assignments=None):
     duties = []
     duty_id = 1
+    course_rooms = {}
+    if room_assignments:
+        for a in room_assignments:
+            # use course_id + slot + date to uniquely identify exam instance
+            key = (a["course_id"], a["slot"], a.get("date"))
+            course_rooms[key] = [r.strip() for r in str(a["rooms_assigned"]).split(",") if r.strip() != "None"]
 
-    # Junior duty — one per course per slot (inside the room)
     for row in final_data:
-        duties.append({
-            "duty_id"      : duty_id,
-            "slot"         : row["slot"],
-            "date"         : row["date"],
-            "session"      : row["session"],
-            "course_id"    : row["course_id"],
-            "role_required": "Junior"
-        })
-        duty_id += 1
-
-    # Senior duty — one per unique slot (overall control)
-    seen_slots = set()
-    for row in final_data:
-        if row["slot"] not in seen_slots:
+        key = (row["course_id"], row["slot"], row.get("date"))
+        rooms = course_rooms.get(key, ["TBD"])
+        for room in rooms:
             duties.append({
-                "duty_id"      : duty_id,
-                "slot"         : row["slot"],
-                "date"         : row["date"],
-                "session"      : row["session"],
-                "course_id"    : "ALL",
-                "role_required": "Senior"
+                "duty_id": duty_id, "slot": row["slot"], "date": row["date"],
+                "session": row["session"], "course_id": row["course_id"],
+                "room": room, "role_required": "Junior"
             })
             duty_id += 1
-            seen_slots.add(row["slot"])
 
-    # Squad duty — one per unique slot (roving across rooms)
+    # Add Senior and Squad duties per unique (date, slot) pair
     seen_slots = set()
     for row in final_data:
-        if row["slot"] not in seen_slots:
-            duties.append({
-                "duty_id"      : duty_id,
-                "slot"         : row["slot"],
-                "date"         : row["date"],
-                "session"      : row["session"],
-                "course_id"    : "ALL",
-                "role_required": "Squad"
-            })
-            duty_id += 1
-            seen_slots.add(row["slot"])
-
+        slot_key = (row.get("date"), row.get("slot"))
+        if slot_key not in seen_slots:
+            for role in ["Senior", "Squad"]:
+                duties.append({
+                    "duty_id": duty_id, "slot": row["slot"], "date": row["date"],
+                    "session": row["session"], "course_id": "ALL",
+                    "room": "Control" if role=="Senior" else "Roaming",
+                    "role_required": role
+                })
+                duty_id += 1
+            seen_slots.add(slot_key)
     return duties
 
 
-def compute_cost(teacher, duty, teacher_duty_count, MAX_DUTIES=5):
+def compute_cost(teacher, duty, teacher_duty_count, fairness_map=None, db_duty_counts=None, MAX_DUTIES=5):
+    INF = 10_000
+    if teacher["role"] != duty["role_required"]: return INF
+    
+    # Past duties from database
+    past_duties_dict = db_duty_counts.get(teacher["id"], {}) if db_duty_counts else {}
+    past_total = sum(past_duties_dict.values())
+    
+    # Replicated instance number indicates how many duties are being assigned in this pass.
+    # Total duty count = past database duties + instance number
+    inst = teacher.get("instance", 0)
+    total_duty_count = past_total + inst
+    
+    if total_duty_count >= MAX_DUTIES:
+        return INF
+    
+    cost = 10
+    if duty["role_required"] in ["Senior", "Squad"] and fairness_map:
+        if not fairness_map.get(teacher["id"], True): cost = 0.5
+        else: cost = 5
+    
+    if duty["slot"] in teacher.get("preferred_slots", set()):
+        cost = min(cost, 1)
+    
+    # Penalty of 100 * total_duty_count to load-balance
+    cost += total_duty_count * 100
+    return cost
+
+
+def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MAX_DUTIES=5):
     """
-    Compute assignment cost for a (teacher, duty) pair.
-
-    Cost logic:
-    - Role mismatch          → INF (hard constraint, never assign)
-    - Already at max duties  → INF (hard constraint)
-    - Preferred slot         → cost = 1  (strongly preferred)
-    - Non-preferred slot     → cost = 10 (allowed but penalised)
-
-    Lower cost = better assignment.
+    Improved teacher assignment using role-batching and replication to handle MAX_DUTIES.
     """
     INF = 10_000
-
-    # Hard constraint: role must match
-    if teacher["role"] != duty["role_required"]:
-        return INF
-
-    # Hard constraint: max 5 duties per teacher
-    if teacher_duty_count.get(teacher["id"], 0) >= MAX_DUTIES:
-        return INF
-
-    # Soft constraint: prefer slots the teacher listed
-    if duty["slot"] in teacher["preferred_slots"]:
-        return 1
-    else:
-        return 10
-
-
-def assign_teachers(teachers, duties):
-    """
-    Solve the teacher-duty assignment using Minimum Cost Bipartite Matching.
-
-    Uses scipy.optimize.linear_sum_assignment (Hungarian Algorithm) on the
-    cost matrix built from compute_cost().
-
-    Returns:
-        assignments : list of dicts
-            { duty_id, slot, date, session, course_id,
-              role_required, teacher_id, teacher_name, cost }
-        unassigned  : list of duty dicts that could not be filled
-    """
-    INF = 10_000
-
-    # Flatten teacher dict into a list for matrix indexing
-    teacher_list = [{"id": tid, **tdata} for tid, tdata in teachers.items()]
-    n_teachers   = len(teacher_list)
-    n_duties     = len(duties)
-
-    # Pad to square matrix (Hungarian algorithm needs square)
-    size = max(n_teachers, n_duties)
-
-    # Track how many duties each teacher has been given (updated iteratively)
-    teacher_duty_count = {t["id"]: 0 for t in teacher_list}
-
-    # We solve in ONE pass using the full cost matrix.
-    # Build cost matrix: rows = teachers, cols = duties
-    cost_matrix = np.full((size, size), INF, dtype=float)
-
-    for i, teacher in enumerate(teacher_list):
-        for j, duty in enumerate(duties):
-            cost_matrix[i][j] = compute_cost(
-                teacher, duty, teacher_duty_count
-            )
-
-    # Run Hungarian algorithm — finds optimal min-cost assignment
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-
     assignments = []
-    unassigned  = []
     assigned_duty_ids = set()
+    teacher_duty_count = {tid: 0 for tid in teachers}
+    
+    # Exclude admins before building the matrix
+    admin_keys = set()
+    try:
+        from db import get_db
+        db_conn = get_db()
+        admin_docs = list(db_conn["teachers"].find({"is_admin": True}))
+        for doc in admin_docs:
+            if doc.get("teacher_id"):
+                admin_keys.add(doc["teacher_id"])
+            if doc.get("email"):
+                admin_keys.add(doc["email"])
+    except Exception as e:
+        print(f"Error querying admins for exclusion: {e}")
 
-    for r, c in zip(row_ind, col_ind):
-        # Skip padding rows/cols
-        if r >= n_teachers or c >= n_duties:
-            continue
+    from collections import defaultdict
+    duties_by_role = defaultdict(list)
+    for d in duties: duties_by_role[d["role_required"]].append(d)
 
-        cost = cost_matrix[r][c]
-        if cost >= INF:
-            # Could not assign — hard constraint violated
-            continue
+    for role, role_duties in duties_by_role.items():
+        eligible_teachers = [
+            t for t in teachers.values() 
+            if t["role"] == role and t["id"] not in admin_keys
+        ]
+        if not eligible_teachers: continue
 
-        teacher = teacher_list[r]
-        duty    = duties[c]
+        # Replicate teachers to allow multiple duties in one Hungarian pass
+        expanded_teachers = []
+        for t in eligible_teachers:
+            for inst in range(MAX_DUTIES):
+                expanded_teachers.append({**t, "instance": inst})
 
-        teacher_duty_count[teacher["id"]] = teacher_duty_count.get(teacher["id"], 0) + 1
-        assigned_duty_ids.add(duty["duty_id"])
+        n_t = len(expanded_teachers)
+        n_d = len(role_duties)
+        size = max(n_t, n_d)
+        cost_matrix = np.full((size, size), INF, dtype=float)
 
-        assignments.append({
-            "duty_id"      : duty["duty_id"],
-            "slot"         : duty["slot"],
-            "date"         : duty["date"],
-            "session"      : duty["session"],
-            "course_id"    : duty["course_id"],
-            "role_required": duty["role_required"],
-            "teacher_id"   : teacher["id"],
-            "teacher_name" : teacher["name"],
-            "cost"         : int(cost)
-        })
+        for i, t_inst in enumerate(expanded_teachers):
+            for j, duty in enumerate(role_duties):
+                cost_matrix[i][j] = compute_cost(
+                    t_inst, duty, teacher_duty_count, 
+                    fairness_map=fairness_map, 
+                    db_duty_counts=db_duty_counts,
+                    MAX_DUTIES=MAX_DUTIES
+                )
 
-    # Collect unassigned duties
-    for duty in duties:
-        if duty["duty_id"] not in assigned_duty_ids:
-            unassigned.append(duty)
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
+        for r, c in zip(row_ind, col_ind):
+            if r >= n_t or c >= n_d: continue
+            cost = cost_matrix[r][c]
+            if cost >= INF: continue
+
+            teacher = expanded_teachers[r]
+            duty = role_duties[c]
+
+            # Collision check: same teacher, same slot
+            if any(a["teacher_id"] == teacher["id"] and a["slot"] == duty["slot"] for a in assignments):
+                continue
+
+            teacher_duty_count[teacher["id"]] += 1
+            assigned_duty_ids.add(duty["duty_id"])
+            assignments.append({
+                "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
+                "session": duty["session"], "course_id": duty["course_id"],
+                "role_required": duty["role_required"], "teacher_id": teacher["id"],
+                "teacher_name": teacher["name"], "cost": int(cost) if cost >= 1 else cost
+            })
+
+    unassigned = [d for d in duties if d["duty_id"] not in assigned_duty_ids]
     return assignments, unassigned, teacher_duty_count
-
-
-def validate_teacher_assignment(assignments, teacher_duty_count, MAX_DUTIES=5):
-    """
-    Post-assignment validation:
-    1. No teacher assigned two duties in the same slot
-    2. No teacher exceeds max duty count
-    3. Role integrity — teacher role matches duty role
-    """
-    violations = []
-
-    # Check: same teacher in same slot twice
-    slot_map = {}
-    for a in assignments:
-        key = (a["teacher_id"], a["slot"])
-        if key in slot_map:
-            violations.append(
-                f"  ⚠️  {a['teacher_name']} has TWO duties in slot {a['slot']}"
-            )
-        else:
-            slot_map[key] = True
-
-    # Check: max duties
-    for t_id, count in teacher_duty_count.items():
-        if count > MAX_DUTIES:
-            violations.append(
-                f"  ⚠️  Teacher {t_id} has {count} duties — exceeds max of {MAX_DUTIES}"
-            )
-
-    if violations:
-        print("\n🚨 TEACHER ASSIGNMENT VIOLATIONS:")
-        for v in violations:
-            print(v)
-    else:
-        print("\n✅ Teacher assignment valid — no constraint violations.")
-
-    return len(violations) == 0
-
-
-def print_teacher_summary(assignments, teacher_duty_count):
-    """Print per-teacher workload summary."""
-    workload = {}
-    for a in assignments:
-        t_id   = a["teacher_id"]
-        t_name = a["teacher_name"]
-        role   = a["role_required"]
-        workload.setdefault(t_id, {"name": t_name, "role": role, "duties": 0})
-        workload[t_id]["duties"] += 1
-
-    summary = [
-        {
-            "Teacher ID"  : t_id,
-            "Name"        : data["name"],
-            "Role"        : data["role"],
-            "Duties Assigned": data["duties"]
-        }
-        for t_id, data in workload.items()
-    ]
-    summary.sort(key=lambda x: x["Role"])
-
-    print("\n--- TEACHER WORKLOAD SUMMARY ---")
-    print(tabulate(summary, headers="keys", tablefmt="fancy_grid"))
-
-    # Preference satisfaction rate
-    preferred = sum(1 for a in assignments if a["cost"] == 1)
-    total     = len(assignments)
-    pct       = (preferred / total * 100) if total else 0
-    print(f"\n📊 Preference satisfaction: {preferred}/{total} duties ({pct:.1f}%) assigned to preferred slots")
-
-
-# ================================================
-# MAIN
-# ================================================
-
-def main():
-    if len(sys.argv) < 2:
-        print("❌ Error: No input file provided.")
-        print("   → Usage: python main.py <path_to_excel_file.xlsx>")
-        return
-
-    input_file = sys.argv[1]
-    output_file = "final_exam_schedule.csv"
-
-    if not os.path.exists(input_file):
-        print(f"❌ Error: '{input_file}' not found.")
-        return
-
-    print("📂 Loading data from Excel...")
-    student_courses, slot_meta, course_meta, enrolled_counts = load_data(input_file)
-
-    print(f"   ✔ {len(course_meta)} courses loaded")
-    print(f"   ✔ {len(student_courses)} students loaded")
-    print(f"   ✔ {len(slot_meta)} slots available")
-
-    # Build conflict graph and color it
-    print("\n🔗 Building conflict graph...")
-    graph = build_conflict_graph(student_courses)
-    print(f"   ✔ {len(graph)} nodes, "
-          f"{sum(len(v) for v in graph.values()) // 2} conflict edges")
-
-    print("\n🎨 Running DSATUR coloring algorithm...")
-    coloring = dsatur_coloring(graph)
-    total_slots_used = max(coloring.values()) + 1
-    print(f"   ✔ Coloring complete — {total_slots_used} slot(s) needed")
-
-    # Warn if more slots needed than available
-    if total_slots_used > len(slot_meta):
-        print(f"\n⚠️  WARNING: Algorithm needs {total_slots_used} slots "
-              f"but only {len(slot_meta)} are defined in the Excel sheet.")
-        print("   → Extra courses will be assigned a fallback label.")
-
-    # -----------------------------------------------
-    # Build Final Output Rows
-    # -----------------------------------------------
-    final_data = []
-
-    for course_id, slot_idx in coloring.items():
-        # Slot info (fallback if out of range)
-        if slot_idx in slot_meta:
-            slot_info = slot_meta[slot_idx]
-        else:
-            slot_info = {
-                "display_id" : slot_idx + 1,
-                "date"       : "TBD",
-                "session"    : "TBD"
-            }
-
-        # Course info
-        c_info = course_meta.get(course_id, {
-            "course_name"    : "Unknown",
-            "year"           : "N/A",
-            "students_count" : 0,
-            "department"     : "General"
-        })
-
-        # Enrolled count from actual Student_Courses data
-        enrolled = enrolled_counts.get(course_id, 0)
-
-        final_data.append({
-            "course_id"        : course_id,
-            "course_name"      : c_info["course_name"],
-            "year"             : c_info["year"],
-            "department"       : c_info["department"],
-            "slot"             : slot_info["display_id"],
-            "date"             : slot_info["date"],
-            "session"          : slot_info["session"],
-            "declared_students": c_info["students_count"],  # from Courses sheet
-            "enrolled_students": enrolled,                  # from Student_Courses sheet
-        })
-
-    # Sort: primary by slot, secondary by department, then course_id
-    final_data.sort(key=lambda x: (x["slot"], x["department"], x["course_id"]))
-
-    # Adjust exam dates to avoid conflicts
-    adjust_exam_dates(final_data, student_courses, slot_meta)
-
-    # -----------------------------------------------
-    # Terminal Output — Full Schedule
-    # -----------------------------------------------
-    print("\n" + "=" * 70)
-    print("            📋  FINAL EXAM TIMETABLE  📋")
-    print("=" * 70)
-    print(tabulate(final_data, headers="keys", tablefmt="fancy_grid"))
-
-    # -----------------------------------------------
-    # Slot Utilization Summary
-    # -----------------------------------------------
-    print_slot_summary(final_data, total_slots_used)
-
-    # -----------------------------------------------
-    # Conflict Validation
-    # -----------------------------------------------
-    validate_no_conflicts(student_courses, coloring)
-
-    # -----------------------------------------------
-    # CSV Export
-    # -----------------------------------------------
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-    if not final_data:
-        print("\n⚠️  No data to export.")
-        return
-
-    keys = list(final_data[0].keys())
-    with open(output_file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(final_data)
-
-    print(f"\n💾 CSV exported → {output_file}")
-
-    # -----------------------------------------------
-    # STAGE 2 — Room Allocation
-    # -----------------------------------------------
-    print("\n" + "=" * 70)
-    print("       🏫  STAGE 2: ROOM ALLOCATION (GREEDY ASSIGNMENT)  🏫")
-    print("=" * 70)
-
-    print("\n📂 Loading room data...")
-    rooms = load_room_data(input_file)
-    print(f"   ✔ {len(rooms)} rooms loaded")
-    for r in rooms:
-        print(f"      → {r['room_id']}: capacity {r['capacity']}")
-
-    print("\n🏃 Running greedy room allocation...")
-    room_assignments, unallocated_rooms = allocate_rooms(final_data, rooms)
-    print(f"   ✔ {len(room_assignments)} courses allocated to rooms")
-
-    print("\n" + "=" * 70)
-    print("         📋  ROOM ALLOCATION SCHEDULE  📋")
-    print("=" * 70)
-    print_room_summary(room_assignments)
-    validate_room_allocation(room_assignments, unallocated_rooms)
-
-    # Export room allocation to CSV
-    room_output_file = "room_allocation.csv"
-    if room_assignments:
-        keys_r = list(room_assignments[0].keys())
-        with open(room_output_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=keys_r)
-            writer.writeheader()
-            writer.writerows(room_assignments)
-        print(f"\n💾 Room allocation exported → {room_output_file}")
-
-    # -----------------------------------------------
-    # STAGE 3 — Teacher Assignment
-    # -----------------------------------------------
-    print("\n" + "=" * 70)
-    print("       👩‍🏫  STAGE 3: TEACHER ASSIGNMENT (BIPARTITE MATCHING)  👨‍🏫")
-    print("=" * 70)
-
-    print("\n📂 Loading teacher data...")
-    teachers = load_teacher_data(input_file)
-    print(f"   ✔ {len(teachers)} teachers loaded")
-
-    # Role breakdown
-    role_counts = {}
-    for t in teachers.values():
-        role_counts[t["role"]] = role_counts.get(t["role"], 0) + 1
-    for role, count in role_counts.items():
-        print(f"   ✔ {count} {role} supervisor(s)")
-
-    print("\n📋 Generating duties from exam schedule...")
-    duties = build_duties(final_data)
-    duty_role_counts = {}
-    for d in duties:
-        duty_role_counts[d["role_required"]] = duty_role_counts.get(d["role_required"], 0) + 1
-    print(f"   ✔ {len(duties)} total duties generated")
-    for role, count in duty_role_counts.items():
-        print(f"      → {count} {role} duties")
-
-    print("\n🔗 Running minimum cost bipartite matching...")
-    assignments, unassigned, teacher_duty_count = assign_teachers(teachers, duties)
-    print(f"   ✔ {len(assignments)} duties successfully assigned")
-
-    if unassigned:
-        print(f"\n⚠️  {len(unassigned)} duties could NOT be assigned:")
-        for d in unassigned:
-            print(f"   → Duty {d['duty_id']} | Slot {d['slot']} | {d['date']} "
-                  f"| {d['session']} | Role: {d['role_required']}")
-        print("   Tip: Add more teachers of the required role to the Excel sheet.")
-
-    # Print full assignment table
-    print("\n" + "=" * 70)
-    print("         📋  FINAL TEACHER DUTY SCHEDULE  📋")
-    print("=" * 70)
-
-    display_assignments = [
-        {
-            "Slot"        : a["slot"],
-            "Date"        : a["date"],
-            "Session"     : a["session"],
-            "Course"      : a["course_id"],
-            "Role"        : a["role_required"],
-            "Teacher ID"  : a["teacher_id"],
-            "Teacher Name": a["teacher_name"],
-            "Preferred?"  : "✅ Yes" if a["cost"] == 1 else "🔸 No"
-        }
-        for a in sorted(assignments, key=lambda x: (x["slot"], x["role_required"]))
-    ]
-    print(tabulate(display_assignments, headers="keys", tablefmt="fancy_grid"))
-
-    # Workload and preference summary
-    print_teacher_summary(assignments, teacher_duty_count)
-
-    # Validation
-    validate_teacher_assignment(assignments, teacher_duty_count)
-
-    # Export teacher assignment to CSV
-    teacher_output_file = "teacher_duty_schedule.csv"
-    if assignments:
-        keys = list(assignments[0].keys())
-        with open(teacher_output_file, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writeheader()
-            writer.writerows(assignments)
-        print(f"\n💾 Teacher duty schedule exported → {teacher_output_file}")
-
-if __name__ == "__main__":
-    main()
