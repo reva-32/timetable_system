@@ -1,3 +1,23 @@
+"""
+main.py — Core algorithm logic for the ExamSched pipeline.
+
+This module is imported by app.py (Flask server) and contains the full
+production pipeline:
+  - build_conflict_graph()  : builds course conflict graph from student enrollments
+  - dsatur_coloring()       : DSATUR graph coloring for conflict-free slot assignment
+  - load_data()             : reads Student_Courses, Courses, Slots sheets
+  - load_room_data()        : reads Rooms sheet
+  - allocate_rooms()        : greedy room allocation (Stage 2)
+  - load_teacher_data()     : reads Teachers + Preferences sheets
+  - build_duties()          : generates supervision duties from timetable
+  - assign_teachers()       : Hungarian algorithm teacher assignment (Stage 3)
+  - adjust_exam_dates()     : post-process to spread same-day exams across days
+
+NOTE: colouring.py and graph.py contain standalone versions of the graph
+building and coloring functions. They are intentionally NOT imported here
+because main.py needs slightly extended versions (e.g., all_courses filter
+in build_conflict_graph). Those files are kept for isolated testing only.
+"""
 import pandas as pd
 import os
 import csv

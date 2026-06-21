@@ -1,3 +1,19 @@
+"""
+colouring.py — Standalone graph coloring utilities.
+
+NOTE: This module is NOT imported by app.py or the live pipeline.
+The same logic (greedy_coloring / dsatur_coloring) is inlined directly
+inside main.py for the production pipeline.
+
+This file is kept as a self-contained utility for:
+  - Unit testing / experimenting with coloring algorithms in isolation
+  - Running quick benchmarks without starting the Flask server
+
+To test standalone:
+    python -c "from colouring import dsatur_coloring; print(dsatur_coloring({'A':{'B'}, 'B':{'A'}}))"
+"""
+
+
 def greedy_coloring(graph: dict) -> dict:
     """
     Greedy graph coloring sorted by degree (descending).

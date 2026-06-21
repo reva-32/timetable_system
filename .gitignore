@@ -1,1 +1,59 @@
+# ============================================================
+# ExamSched — .gitignore
+# ============================================================
+
+# ----------------------------
+# Environment / Secrets
+# ----------------------------
 .env
+backend/.env
+*.env
+
+# ----------------------------
+# Python bytecode & caches
+# ----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# ----------------------------
+# Virtual environments
+# ----------------------------
+env/
+venv/
+.venv/
+ENV/
+.env/
+
+# ----------------------------
+# Temporary / generated files
+# ----------------------------
+# Uploaded Excel temp files (generated at runtime, not source)
+temp_data.xlsx
+backend/temp_data.xlsx
+
+# Generated output CSVs (produced by the old CLI main.py)
+final_exam_schedule.csv
+room_allocation.csv
+teacher_duty_schedule.csv
+
+# ----------------------------
+# OS / Editor noise
+# ----------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ----------------------------
+# Logs
+# ----------------------------
+*.log
+logs/

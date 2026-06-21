@@ -2,6 +2,7 @@ import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -87,16 +88,19 @@ def init_faculty(teachers_data):
             existing = faculty_col.find_one({"email": t_id})
 
         if not existing:
+            teacher_email = f"{t_id}@pict.edu"  # canonical email format
             faculty_col.insert_one({
                 "teacher_id"          : t_id,
-                "email"               : t_id,          # kept for legacy compat
+                "email"               : teacher_email,
                 "name"                : t_info["name"],
                 "role"                : t_info.get("role", "Junior"),
                 "department"          : t_info.get("department", "IT"),
                 "has_served_high_role": False,
                 "duty_counts"         : { "squad": 0, "junior": 0, "senior": 0 },
                 "last_role"           : "N/A",
-                "history"             : []
+                "history"             : [],
+                # Default password = teacher_id (e.g. "T1"), not the full email
+                "password_hash"       : generate_password_hash(t_id)
             })
         else:
             # Keep name/role in sync with Excel in case it was updated
@@ -194,6 +198,20 @@ def get_all_faculty_status():
         key          = f.get("teacher_id") or f.get("email", "")
         result[key]  = f
     return result
+
+
+def update_password(identifier: str, new_password: str) -> bool:
+    """
+    Hash and store a new password for the teacher identified by email or teacher_id.
+    Returns True if a matching document was found and updated, False otherwise.
+    """
+    database = get_db()
+    new_hash = generate_password_hash(new_password)
+    result = database["teachers"].update_one(
+        {"$or": [{"email": identifier}, {"teacher_id": identifier}]},
+        {"$set": {"password_hash": new_hash}}
+    )
+    return result.matched_count > 0
 
 
 if __name__ == "__main__":

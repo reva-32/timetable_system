@@ -50,28 +50,20 @@ def css():
 
 @app.route("/login", methods=["POST"])
 def login():
-    print("\n========== LOGIN CALLED ==========")
-
     data = request.get_json()
-    print("Received:", data)
 
-    email = data.get("email") if data else None
-    print("Email:", email)
+    email    = data.get("email", "").strip()    if data else ""
+    password = data.get("password", "").strip() if data else ""
 
     if not email:
-        print("No email")
         return jsonify({"error": "Email is required"}), 400
+    if not password:
+        return jsonify({"error": "Password is required"}), 400
 
     try:
-        print("Importing get_db...")
-        from db import get_db
-
-        print("Calling get_db()...")
+        from db import get_db, check_password_hash
         database = get_db()
 
-        print("Connected to database!")
-
-        print("Searching teachers...")
         user = database["teachers"].find_one({
             "$or": [
                 {"email": email},
@@ -79,19 +71,33 @@ def login():
             ]
         })
 
-        print("User =", user)
-
         if user is None:
-            print("User not found")
-            return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "Invalid credentials"}), 401
 
-        print("Returning success")
+        # --- @pict.edu domain check ---
+        if not email.lower().endswith("@pict.edu"):
+            return jsonify({"error": "Only @pict.edu email addresses are allowed"}), 403
 
+        # --- Password check ---
+        stored_hash = user.get("password_hash")
+        teacher_id  = user.get("teacher_id", user.get("email", "").split("@")[0])
+
+        if stored_hash:
+            # Normal path: validate against stored hash
+            if not check_password_hash(stored_hash, password):
+                return jsonify({"error": "Invalid credentials"}), 401
+        else:
+            # Legacy path: no password set yet → default password = teacher_id (e.g. "T1")
+            if password != teacher_id:
+                return jsonify({"error": "Invalid credentials"}), 401
+
+        user_email = user.get("email", f"{teacher_id}@pict.edu")
         return jsonify({
-            "name": user.get("name"),
-            "role": user.get("role"),
-            "is_admin": user.get("is_admin", False),
-            "history": user.get("history", [])
+            "name"      : user.get("name"),
+            "role"      : user.get("role"),
+            "is_admin"  : user.get("is_admin", False),
+            "history"   : user.get("history", []),
+            "identifier": user_email
         })
 
     except Exception as e:
@@ -99,6 +105,52 @@ def login():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
         
+
+@app.route("/change_password", methods=["POST"])
+def change_password():
+    data             = request.get_json()
+    identifier       = (data.get("identifier", "") or "").strip()
+    current_password = (data.get("current_password", "") or "").strip()
+    new_password     = (data.get("new_password", "") or "").strip()
+
+    if not identifier or not current_password or not new_password:
+        return jsonify({"error": "All fields are required"}), 400
+    if len(new_password) < 6:
+        return jsonify({"error": "New password must be at least 6 characters"}), 400
+
+    try:
+        from db import get_db, check_password_hash, update_password
+        database = get_db()
+
+        user = database["teachers"].find_one({
+            "$or": [{"email": identifier}, {"teacher_id": identifier}]
+        })
+        if user is None:
+            return jsonify({"error": "User not found"}), 404
+
+        stored_hash = user.get("password_hash")
+        teacher_id  = user.get("teacher_id", user.get("email", "").split("@")[0])
+
+        # Validate current password (same logic as login)
+        if stored_hash:
+            if not check_password_hash(stored_hash, current_password):
+                return jsonify({"error": "Current password is incorrect"}), 401
+        else:
+            # Legacy default = teacher_id
+            if current_password != teacher_id:
+                return jsonify({"error": "Current password is incorrect"}), 401
+
+        ok = update_password(identifier, new_password)
+        if ok:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Failed to update password"}), 500
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -115,6 +167,15 @@ def generate():
     frontend_slots     = [s.strip() for s in selected_slots_raw.split(",") if s.strip()] if selected_slots_raw else []
     # NOTE: Date selection removed from UI. Exam dates are read from the Courses sheet
 
+    # Default slot labels per exam type (used when user picks no slots in UI)
+    EXAM_TYPE_DEFAULT_SLOTS = {
+        "Insem"     : ["10:00 – 11:00", "14:00 – 15:00", "16:00 – 17:00"],
+        "Endsem"    : ["10:00 – 12:30", "14:00 – 16:30"],
+        "Practical" : ["12:00 – 14:00", "14:30 – 16:30", "17:00 – 19:00"],
+    }
+    if not frontend_slots:
+        frontend_slots = EXAM_TYPE_DEFAULT_SLOTS.get(exam_type, ["10:00 – 12:30", "14:00 – 16:30"])
+
     # -----------------------------------------------
     # 1. Receive and validate uploaded file
     # -----------------------------------------------
@@ -129,6 +190,25 @@ def generate():
     temp_path = "temp_data.xlsx"
     with open(temp_path, "wb") as f:
         f.write(file_content)
+
+    # -----------------------------------------------
+    # 1b. Validate required Excel sheets are present
+    # -----------------------------------------------
+    REQUIRED_SHEETS = ["Student_Courses", "Courses", "Rooms", "Teachers", "Preferences"]
+    try:
+        import openpyxl as _openpyxl
+        _wb = _openpyxl.load_workbook(temp_path, read_only=True)
+        missing = [s for s in REQUIRED_SHEETS if s not in _wb.sheetnames]
+        _wb.close()
+        if missing:
+            return jsonify({
+                "error": (
+                    f"Missing required sheet(s) in uploaded Excel: {', '.join(missing)}. "
+                    f"Expected sheets: {', '.join(REQUIRED_SHEETS)}."
+                )
+            }), 400
+    except Exception as val_err:
+        return jsonify({"error": f"Could not open Excel file: {str(val_err)}"}), 400
 
     # -----------------------------------------------
     # 2. Load and Filter Data
@@ -281,6 +361,16 @@ def generate():
                 "_global_slot": global_slot
             })
         print(f"DEBUG: final_data length: {len(final_data)}")
+
+    # -----------------------------------------------
+    # 2b. Adjust exam dates (move same-day exams to different days where possible)
+    # -----------------------------------------------
+    try:
+        from main import adjust_exam_dates
+        adjust_exam_dates(final_data, student_courses, slot_meta)
+    except Exception as adj_err:
+        print(f"adjust_exam_dates warning (non-fatal): {adj_err}")
+
     # -----------------------------------------------
     # 3. Run Stage 2 — Room Allocation
     # -----------------------------------------------
@@ -292,7 +382,12 @@ def generate():
     try:
         rooms = load_room_data(temp_path)
         if branch_filter != "ALL":
-            rooms = [r for r in rooms if is_match(r.get("department", "General"), branch_filter, "branch")]
+            # Include rooms matching the branch OR rooms marked as 'General' (shared across branches)
+            rooms = [
+                r for r in rooms
+                if is_match(r.get("department", "General"), branch_filter, "branch")
+                or str(r.get("department", "")).strip().upper() in ("GENERAL", "COMMON", "SHARED", "")
+            ]
         room_assignments, unallocated = allocate_rooms(final_data, rooms)
     except Exception as e:
         return jsonify({"error": f"Error in room allocation: {str(e)}"}), 500
@@ -315,7 +410,12 @@ def generate():
     try:
         teachers = load_teacher_data(temp_path)
         if branch_filter != "ALL":
-            teachers = {tid: t for tid, t in teachers.items() if is_match(t.get("department", "General"), branch_filter, "branch")}
+            # Include teachers from the selected branch OR those marked as 'General' (cross-department)
+            teachers = {
+                tid: t for tid, t in teachers.items()
+                if is_match(t.get("department", "General"), branch_filter, "branch")
+                or str(t.get("department", "")).strip().upper() in ("GENERAL", "COMMON", "SHARED", "")
+            }
             
         try:
             init_faculty(teachers)
@@ -490,7 +590,8 @@ def export_excel():
             if df.empty:
                 df = pd.DataFrame(columns=["Empty"])
             df.to_excel(writer, sheet_name=name[:31], index=False)
-        writer.save()
+        # Note: writer.save() is deprecated in pandas >= 2.0.
+        # The context manager (with block) handles saving automatically on __exit__.
     out.seek(0)
 
     # Post-process with openpyxl for styling

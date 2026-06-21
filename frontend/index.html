@@ -52,12 +52,19 @@
           </svg>
         </div>
         <h2>Faculty Login</h2>
-        <p>Enter your institutional email to continue</p>
+        <p>Sign in with your PICT institutional credentials</p>
       </div>
       <div class="auth-form">
         <div class="input-group">
-          <label for="emailInput">Institutional Email Address</label>
-          <input type="email" id="emailInput" placeholder="faculty@institution.edu" required>
+          <label for="emailInput">Institutional Email</label>
+          <input type="email" id="emailInput" placeholder="T1@pict.edu" required
+            onkeydown="if(event.key==='Enter') document.getElementById('passwordInput').focus()">
+          <span style="font-size:.75rem;color:var(--muted);margin-top:.25rem;display:block">Format: YourTeacherID@pict.edu</span>
+        </div>
+        <div class="input-group">
+          <label for="passwordInput">Password</label>
+          <input type="password" id="passwordInput" placeholder="Default: your Teacher ID (e.g. T1)" required
+            onkeydown="if(event.key==='Enter') handleLogin()">
           <span class="error-msg" id="loginError"></span>
         </div>
         <button class="cta w-full" onclick="handleLogin()">
@@ -235,26 +242,89 @@
       <div class="dash-main">
         <div class="dash-header">
           <h1>My Assigned <span class="gt">Duties</span></h1>
-          <p>View your historical and upcoming exam supervision duties.</p>
+          <p>Your confirmed exam supervision schedule.</p>
         </div>
 
+        <!-- UPCOMING DUTIES -->
         <div class="dash-card mt-6">
+          <div class="tbar">
+            <div class="tbar-l">
+              <span class="stag ind">Upcoming</span>
+              <span class="tdesc">Duties scheduled from today onwards</span>
+            </div>
+          </div>
           <div class="tscroll">
             <table>
               <thead>
                 <tr>
-                  <th>Slot ID</th>
+                  <th>Slot</th>
                   <th>Date</th>
-                  <th>Role Assigned</th>
+                  <th>Role</th>
                   <th>Assigned At</th>
                 </tr>
               </thead>
-              <tbody id="teacherDutiesBody">
+              <tbody id="teacherUpcomingBody">
                 <!-- Filled dynamically -->
               </tbody>
             </table>
           </div>
         </div>
+
+        <!-- PAST DUTIES -->
+        <div class="dash-card mt-6">
+          <div class="tbar">
+            <div class="tbar-l">
+              <span class="stag" style="background:rgba(100,116,139,.15);color:#94a3b8">History</span>
+              <span class="tdesc">Previously completed duties</span>
+            </div>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Date</th>
+                  <th>Role</th>
+                  <th>Assigned At</th>
+                </tr>
+              </thead>
+              <tbody id="teacherPastBody">
+                <!-- Filled dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CHANGE PASSWORD -->
+        <div class="dash-card mt-6">
+          <div class="tbar">
+            <div class="tbar-l">
+              <span class="stag" style="background:rgba(16,185,129,.12);color:#10b981">Security</span>
+              <span class="tdesc">Change your login password</span>
+            </div>
+          </div>
+          <div class="form-grid" style="padding:1.2rem 1rem 1.4rem">
+            <div class="input-group">
+              <label for="cpCurrent">Current Password</label>
+              <input type="password" id="cpCurrent" placeholder="Your current password">
+            </div>
+            <div class="input-group">
+              <label for="cpNew">New Password</label>
+              <input type="password" id="cpNew" placeholder="Min. 6 characters">
+            </div>
+            <div class="input-group">
+              <label for="cpConfirm">Confirm New Password</label>
+              <input type="password" id="cpConfirm" placeholder="Repeat new password">
+            </div>
+            <div style="display:flex;align-items:center;gap:1rem;margin-top:.4rem">
+              <button class="cta" style="padding:.55rem 1.4rem;font-size:.85rem" onclick="submitChangePassword()">
+                <span>Update Password</span>
+              </button>
+              <span id="cpMsg" style="font-size:.85rem"></span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -584,19 +654,29 @@
 `;
 
     function handleLogin() {
-      const email = document.getElementById('emailInput').value.trim();
-      const err = document.getElementById('loginError');
+      const email    = document.getElementById('emailInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const err      = document.getElementById('loginError');
       err.textContent = '';
 
       if (!email) {
-        err.textContent = 'Please enter your email.';
+        err.textContent = 'Please enter your institutional email.';
+        return;
+      }
+      // Client-side domain validation
+      if (!email.toLowerCase().endsWith('@pict.edu')) {
+        err.textContent = 'Email must end with @pict.edu (e.g. T1@pict.edu)';
+        return;
+      }
+      if (!password) {
+        err.textContent = 'Please enter your password.';
         return;
       }
 
       fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify({ email, password })
       })
         .then(async r => {
           const data = await r.json();
@@ -605,6 +685,7 @@
         })
         .then(user => {
           localStorage.setItem('user', JSON.stringify(user));
+          document.getElementById('passwordInput').value = '';
           showDashboard(user);
         })
         .catch(error => {
@@ -634,22 +715,57 @@
         document.getElementById('teacherRole').textContent = user.role + " Supervisor";
         document.getElementById('teacherAvatar').textContent = user.name.charAt(0).toUpperCase();
 
-        const tbody = document.getElementById('teacherDutiesBody');
-        tbody.innerHTML = '';
+        const upcomingBody = document.getElementById('teacherUpcomingBody');
+        const pastBody     = document.getElementById('teacherPastBody');
+        upcomingBody.innerHTML = '';
+        pastBody.innerHTML     = '';
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcoming = [];
+        const past     = [];
+
         if (user.history && user.history.length > 0) {
           user.history.forEach(d => {
-            const tr = document.createElement('tr');
-            const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
-            tr.innerHTML = `
-          <td><span class="mbadge">Slot ${d.slot_id}</span></td>
-          <td>${d.exam_date}</td>
-          <td><span class="rchip ${d.role_assigned.toLowerCase()}">${d.role_assigned}</span></td>
-          <td>${assignedDate}</td>
-        `;
-            tbody.appendChild(tr);
+            // Parse exam_date like "21-Jun-2026" or "2026-06-21"
+            const examDate = new Date(d.exam_date);
+            examDate.setHours(0, 0, 0, 0);
+            if (!isNaN(examDate) && examDate >= today) {
+              upcoming.push(d);
+            } else {
+              past.push(d);
+            }
           });
+        }
+
+        // Sort upcoming ascending (soonest first), past descending (most recent first)
+        upcoming.sort((a, b) => new Date(a.exam_date) - new Date(b.exam_date));
+        past.sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date));
+
+        function buildRow(d) {
+          const tr = document.createElement('tr');
+          tr.className = 'ri';
+          const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
+          tr.innerHTML = `
+            <td><span class="mbadge">Slot ${d.slot_id}</span></td>
+            <td>${d.exam_date}</td>
+            <td><span class="rchip ${(d.role_assigned || '').toLowerCase()}">${d.role_assigned}</span></td>
+            <td>${assignedDate}</td>
+          `;
+          return tr;
+        }
+
+        if (upcoming.length > 0) {
+          upcoming.forEach(d => upcomingBody.appendChild(buildRow(d)));
         } else {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No duties assigned yet.</td></tr>';
+          upcomingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No upcoming duties scheduled.</td></tr>';
+        }
+
+        if (past.length > 0) {
+          past.forEach(d => pastBody.appendChild(buildRow(d)));
+        } else {
+          pastBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
         }
       }
     }
@@ -661,6 +777,8 @@
       document.getElementById('resultsPage').style.display = 'none';
       document.getElementById('loginPage').style.display = 'flex';
       document.getElementById('emailInput').value = '';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('loginError').textContent = '';
     }
 
     // On page load check session
@@ -1032,7 +1150,65 @@
         });
     }
 
+
     setTimeout(() => moveInd(document.querySelector('.ptab.on')), 150);
+
+    function submitChangePassword() {
+      const current = document.getElementById('cpCurrent').value;
+      const newPw   = document.getElementById('cpNew').value;
+      const confirm = document.getElementById('cpConfirm').value;
+      const msg     = document.getElementById('cpMsg');
+
+      msg.textContent = '';
+      msg.style.color = '';
+
+      if (!current || !newPw || !confirm) {
+        msg.textContent = 'All fields are required.';
+        msg.style.color = '#f87171';
+        return;
+      }
+      if (newPw.length < 6) {
+        msg.textContent = 'New password must be at least 6 characters.';
+        msg.style.color = '#f87171';
+        return;
+      }
+      if (newPw !== confirm) {
+        msg.textContent = 'New passwords do not match.';
+        msg.style.color = '#f87171';
+        return;
+      }
+
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const identifier = user.identifier || '';
+      if (!identifier) {
+        msg.textContent = 'Session error — please log out and log in again.';
+        msg.style.color = '#f87171';
+        return;
+      }
+
+      fetch('/change_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, current_password: current, new_password: newPw })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.success) {
+            msg.textContent = '✓ Password updated successfully.';
+            msg.style.color = '#10b981';
+            document.getElementById('cpCurrent').value = '';
+            document.getElementById('cpNew').value = '';
+            document.getElementById('cpConfirm').value = '';
+          } else {
+            msg.textContent = d.error || 'Failed to update password.';
+            msg.style.color = '#f87171';
+          }
+        })
+        .catch(() => {
+          msg.textContent = 'Connection error. Please try again.';
+          msg.style.color = '#f87171';
+        });
+    }
   </script>
 </body>
 

@@ -1,3 +1,17 @@
+"""
+graph.py — Standalone conflict graph builder.
+
+NOTE: This module is NOT imported by app.py or the live pipeline.
+The same build_conflict_graph() logic is inlined directly inside main.py
+for the production pipeline (with an additional `all_courses` filter argument).
+
+This file is kept as a self-contained utility for:
+  - Unit testing the graph-building logic in isolation
+  - Running get_graph_stats() on an existing graph without the full server
+
+To test standalone:
+    python -c "from graph import build_conflict_graph, get_graph_stats; g = build_conflict_graph({'S1': ['C1','C2']}); print(get_graph_stats(g))"
+"""
 from itertools import combinations
 
 
