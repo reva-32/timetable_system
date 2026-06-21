@@ -51,15 +51,24 @@
             <circle cx="12" cy="7" r="4" />
           </svg>
         </div>
-        <h2>Faculty Login</h2>
-        <p>Sign in with your PICT institutional credentials</p>
+        <h2 id="loginTitle">Faculty Login</h2>
+        <p id="loginSubtitle">Sign in with your PICT institutional credentials</p>
+      </div>
+      <!-- Role Switcher Tabs -->
+      <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 2rem; background: #f1f5f9; padding: 4px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <button id="tabTeacher" class="auth-tab" style="flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: var(--surface); font-weight: 600; color: var(--txt-main); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="switchLoginRole('teacher')">
+          Faculty
+        </button>
+        <button id="tabAdmin" class="auth-tab" style="flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: transparent; font-weight: 500; color: var(--txt-dim); transition: all 0.2s;" onclick="switchLoginRole('admin')">
+          Coordinator
+        </button>
       </div>
       <div class="auth-form">
         <div class="input-group">
-          <label for="emailInput">Institutional Email</label>
+          <label for="emailInput" id="emailLabel">Institutional Email</label>
           <input type="email" id="emailInput" placeholder="T1@pict.edu" required
             onkeydown="if(event.key==='Enter') document.getElementById('passwordInput').focus()">
-          <span style="font-size:.75rem;color:var(--muted);margin-top:.25rem;display:block">Format: YourTeacherID@pict.edu</span>
+          <span id="emailHelp" style="font-size:.75rem;color:var(--txt-dim);margin-top:.25rem;display:block">Format: YourTeacherID@pict.edu</span>
         </div>
         <div class="input-group">
           <label for="passwordInput">Password</label>
@@ -652,6 +661,57 @@
   <option value="ECE">ECE</option>
   <option value="ENTC">ENTC</option>
 `;
+
+    let currentLoginRole = 'teacher';
+    function switchLoginRole(role) {
+      currentLoginRole = role;
+      const tabTeacher = document.getElementById('tabTeacher');
+      const tabAdmin = document.getElementById('tabAdmin');
+      const loginTitle = document.getElementById('loginTitle');
+      const loginSubtitle = document.getElementById('loginSubtitle');
+      const emailLabel = document.getElementById('emailLabel');
+      const emailHelp = document.getElementById('emailHelp');
+      const passwordInput = document.getElementById('passwordInput');
+      const emailInput = document.getElementById('emailInput');
+      const err = document.getElementById('loginError');
+      err.textContent = '';
+      
+      if (role === 'teacher') {
+        tabTeacher.style.background = 'var(--surface)';
+        tabTeacher.style.color = 'var(--txt-main)';
+        tabTeacher.style.fontWeight = '600';
+        tabTeacher.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        
+        tabAdmin.style.background = 'transparent';
+        tabAdmin.style.color = 'var(--txt-dim)';
+        tabAdmin.style.fontWeight = '500';
+        tabAdmin.style.boxShadow = 'none';
+        
+        loginTitle.textContent = 'Faculty Login';
+        loginSubtitle.textContent = 'Sign in with your PICT institutional credentials';
+        emailLabel.textContent = 'Institutional Email';
+        emailInput.placeholder = 'T1@pict.edu';
+        emailHelp.textContent = 'Format: YourTeacherID@pict.edu';
+        passwordInput.placeholder = 'Default: your Teacher ID (e.g. T1)';
+      } else {
+        tabAdmin.style.background = 'var(--surface)';
+        tabAdmin.style.color = 'var(--txt-main)';
+        tabAdmin.style.fontWeight = '600';
+        tabAdmin.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        
+        tabTeacher.style.background = 'transparent';
+        tabTeacher.style.color = 'var(--txt-dim)';
+        tabTeacher.style.fontWeight = '500';
+        tabTeacher.style.boxShadow = 'none';
+        
+        loginTitle.textContent = 'Coordinator Login';
+        loginSubtitle.textContent = 'Sign in to manage schedules & duties';
+        emailLabel.textContent = 'Coordinator Email';
+        emailInput.placeholder = 'validator@pict.edu';
+        emailHelp.textContent = 'Format: admin_username@pict.edu';
+        passwordInput.placeholder = 'Enter coordinator password';
+      }
+    }
 
     function handleLogin() {
       const email    = document.getElementById('emailInput').value.trim();

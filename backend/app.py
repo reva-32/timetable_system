@@ -214,7 +214,7 @@ def generate():
     # 2. Load and Filter Data
     # -----------------------------------------------
     try:
-        student_courses, slot_meta, course_meta, enrolled_counts = load_data(temp_path)
+        student_courses, loaded_slots, course_meta, enrolled_counts = load_data(temp_path)
     except Exception as e:
         return jsonify({"error": f"Error loading data: {str(e)}"}), 500
 
@@ -281,71 +281,62 @@ def generate():
         enrolled_counts = {c: count for c, count in enrolled_counts.items() if c in course_meta}
         print(f"Filter Applied: Year={year_filter}, Branch={branch_filter}. Remaining Courses: {len(course_meta)}")
 
-    # 2b. Build conflict graphs grouped by exam date and assign per-date slots
-    print(f"DEBUG: Before graph build. len(student_courses)={len(student_courses)}, len(course_meta)={len(course_meta)}")
+    # 2b. Build conflict graphs and assign slots
+    use_dynamic_dates = any(not info.get("exam_date") for info in course_meta.values())
 
-    # Ensure all courses have exam_date defined in course_meta
-    missing_dates = [cid for cid, info in course_meta.items() if not info.get("exam_date")]
-    if missing_dates:
-        return jsonify({"error": (
-            "Missing exam dates: some courses in the Courses sheet do not have a date column. "
-            "Please add a 'date' or 'exam_date' value for every course in the Courses sheet (format: DD-MMM-YYYY or any parsable date)."
-        )}), 400
-
-    # Group courses by exam date
-    from collections import defaultdict
-    date_groups = defaultdict(list)
-    for cid, info in course_meta.items():
-        date_groups[info["exam_date"]].append(cid)
-
-    # We'll produce a global slot_meta mapping with unique global slot indices
     slot_meta = {}
     final_data = []
-    global_slot_counter = 0
 
-    for exam_date, courses_on_date in sorted(date_groups.items()):
-        # Build conflict graph only for courses on this date
-        subgraph = build_conflict_graph(student_courses, all_courses=list(courses_on_date))
+    if use_dynamic_dates:
+        print("Using dynamic slot scheduling from Slots sheet (or generated).")
+        # Build global conflict graph for all courses
+        subgraph = build_conflict_graph(student_courses, all_courses=list(course_meta.keys()))
         coloring = dsatur_coloring(subgraph)
 
-        # Remap colors to contiguous indices starting at 0 per date
         orig_colors = sorted(set(coloring.values())) if coloring else []
         remap = {orig: idx for idx, orig in enumerate(orig_colors)}
 
-        # For each (remapped) color used on this date, create a global slot id
-        color_to_global = {}
+        has_loaded_slots = bool(loaded_slots)
+        start_date = date.today()
         L = len(frontend_slots)
+        if L == 0:
+            frontend_slots = ["Morning", "Afternoon"]
+            L = 2
+
+        color_to_global = {}
         for orig_color in orig_colors:
-            new_color = remap[orig_color]
-            color_to_global[orig_color] = global_slot_counter
-            # display_id is new_color+1 (slots restart each date)
-            # prefer UI-provided slot timings; if not provided, fall back to course session
-            session_val = frontend_slots[new_color % L] if L > 0 else None
-            slot_meta[global_slot_counter] = {
-                "display_id": new_color + 1,
-                "date": exam_date,
-                "session": session_val
-            }
-            global_slot_counter += 1
+            idx = remap[orig_color]
+            color_to_global[orig_color] = idx
+            
+            if has_loaded_slots and idx in loaded_slots:
+                slot_info = loaded_slots[idx]
+                slot_meta[idx] = {
+                    "display_id": slot_info.get("display_id", idx + 1),
+                    "date": slot_info.get("date"),
+                    "session": slot_info.get("session")
+                }
+            else:
+                day_offset = idx // L
+                slot_in_day = idx % L
+                slot_date = start_date + timedelta(days=day_offset)
+                date_str = slot_date.strftime("%d-%b-%Y")
+                slot_meta[idx] = {
+                    "display_id": slot_in_day + 1,
+                    "date": date_str,
+                    "session": frontend_slots[slot_in_day]
+                }
 
-        # Debug: log mapping info
-        print(f"DEBUG: exam_date={exam_date}, orig_colors={orig_colors}, remap={remap}, frontend_slots={frontend_slots}")
-
-        # Map courses to final_data rows
-        for course_id in courses_on_date:
-            c_info = course_meta.get(course_id, {})
+        for course_id in course_meta.keys():
+            c_info = course_meta[course_id]
             enrolled = enrolled_counts.get(course_id, 0)
             orig_color = coloring.get(course_id, 0)
             new_color = remap.get(orig_color, 0)
             global_slot = color_to_global.get(orig_color, None)
-            display_slot = new_color + 1
-            # Prefer the slot-level session (from frontend slots) if available; else course session; else 'TBD'
-            session = None
-            if global_slot is not None and global_slot in slot_meta:
-                session = slot_meta[global_slot]["session"]
-            if not session:
-                session = c_info.get("session") or (frontend_slots[0] if L>0 else "TBD")
-            print(f"DEBUG: course={course_id}, orig_color={orig_color}, new_color={new_color}, display_slot={display_slot}, session={session}")
+            
+            slot_info = slot_meta.get(new_color, {})
+            display_slot = slot_info.get("display_id", 1)
+            exam_date = slot_info.get("date", "TBD")
+            session = slot_info.get("session", "TBD")
 
             final_data.append({
                 "course_id": course_id,
@@ -357,10 +348,64 @@ def generate():
                 "session": session,
                 "declared_students": c_info.get("students_count", 0),
                 "enrolled_students": enrolled,
-                # store mapping to global slot for internal use (not returned to frontend)
                 "_global_slot": global_slot
             })
-        print(f"DEBUG: final_data length: {len(final_data)}")
+        print(f"DEBUG: Dynamic final_data length: {len(final_data)}")
+    else:
+        # Pre-assigned dates mode: group by exam date from Courses sheet
+        print("Using pre-assigned exam dates from Courses sheet.")
+        from collections import defaultdict
+        date_groups = defaultdict(list)
+        for cid, info in course_meta.items():
+            date_groups[info["exam_date"]].append(cid)
+
+        global_slot_counter = 0
+        for exam_date, courses_on_date in sorted(date_groups.items()):
+            subgraph = build_conflict_graph(student_courses, all_courses=list(courses_on_date))
+            coloring = dsatur_coloring(subgraph)
+
+            orig_colors = sorted(set(coloring.values())) if coloring else []
+            remap = {orig: idx for idx, orig in enumerate(orig_colors)}
+
+            color_to_global = {}
+            L = len(frontend_slots)
+            for orig_color in orig_colors:
+                new_color = remap[orig_color]
+                color_to_global[orig_color] = global_slot_counter
+                session_val = frontend_slots[new_color % L] if L > 0 else None
+                slot_meta[global_slot_counter] = {
+                    "display_id": new_color + 1,
+                    "date": exam_date,
+                    "session": session_val
+                }
+                global_slot_counter += 1
+
+            for course_id in courses_on_date:
+                c_info = course_meta.get(course_id, {})
+                enrolled = enrolled_counts.get(course_id, 0)
+                orig_color = coloring.get(course_id, 0)
+                new_color = remap.get(orig_color, 0)
+                global_slot = color_to_global.get(orig_color, None)
+                display_slot = new_color + 1
+                session = None
+                if global_slot is not None and global_slot in slot_meta:
+                    session = slot_meta[global_slot]["session"]
+                if not session:
+                    session = c_info.get("session") or (frontend_slots[0] if L>0 else "TBD")
+
+                final_data.append({
+                    "course_id": course_id,
+                    "course_name": c_info.get("course_name", "Unknown"),
+                    "year": c_info.get("year", "N/A"),
+                    "department": c_info.get("department", "General"),
+                    "slot": display_slot,
+                    "date": exam_date,
+                    "session": session,
+                    "declared_students": c_info.get("students_count", 0),
+                    "enrolled_students": enrolled,
+                    "_global_slot": global_slot
+                })
+        print(f"DEBUG: Pre-assigned final_data length: {len(final_data)}")
 
     # -----------------------------------------------
     # 2b. Adjust exam dates (move same-day exams to different days where possible)
