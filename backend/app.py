@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import io
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+import pdfplumber
+from PyPDF2 import PdfReader
 
 # Import all functions from main.py
 from main import (
@@ -19,6 +21,7 @@ from main import (
 from db import (
     init_faculty,
     get_all_faculty_status,
+    get_db,
     update_faculty_duty,
     check_reset_fairness
 )
@@ -27,6 +30,9 @@ import pandas as pd
 from io import BytesIO
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from werkzeug.utils import secure_filename
+import uuid
+import os
 
 app = Flask(
     __name__,
@@ -152,6 +158,315 @@ def change_password():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/request_adjustment", methods=["POST"])
+def request_adjustment():
+    data = request.get_json() or {}
+    identifier = (data.get('identifier','') or '').strip()
+    # New payload supports direct apply: old_* fields identify existing duty entry
+    old_slot = data.get('old_slot_id','')
+    old_date = data.get('old_exam_date','')
+    new_slot = data.get('new_slot_id','')
+    new_date = data.get('new_exam_date','')
+    new_role = data.get('new_role','')
+    reason = data.get('reason','')
+    apply_direct = bool(data.get('apply_direct', False))
+
+    if not identifier or not old_slot or not old_date:
+        return jsonify({"error": "identifier, old_slot_id and old_exam_date are required"}), 400
+
+    try:
+        database = get_db()
+        adj_doc = {
+            'identifier': identifier,
+            'old_slot_id': str(old_slot),
+            'old_exam_date': old_date,
+            'new_slot_id': str(new_slot),
+            'new_exam_date': new_date,
+            'new_role': new_role,
+            'reason': reason,
+            'requested_at': datetime.utcnow().isoformat(),
+            'status': 'applied' if apply_direct else 'pending'
+        }
+
+        # If apply_direct, attempt to validate ownership and update teacher history
+        if apply_direct:
+            # Find applicant teacher and the target teacher
+            applicant_q = {"$or": [{"email": identifier}, {"teacher_id": identifier}]}
+            applicant = database['teachers'].find_one(applicant_q)
+            if not applicant:
+                adj_doc['status'] = 'rejected'
+                adj_doc['reason_internal'] = 'Applicant not found'
+                database['adjustments'].insert_one(adj_doc)
+                return jsonify({"error": "Applicant not found"}), 400
+
+            # Validation: applicant must have a history entry matching old_slot & old_date
+            def owns_entry(doc, slot, date):
+                for h in doc.get('history', []):
+                    if str(h.get('slot_id')) == str(slot) and str(h.get('exam_date')) == str(date):
+                        return True
+                return False
+
+            if not owns_entry(applicant, old_slot, old_date):
+                adj_doc['status'] = 'rejected'
+                adj_doc['reason_internal'] = 'Applicant does not own the specified original duty'
+                database['adjustments'].insert_one(adj_doc)
+                return jsonify({"error": "Applicant does not own the specified original duty"}), 400
+
+            # Find adjusted faculty (the one to swap with)
+            adjusted = database['teachers'].find_one({"$or": [{"teacher_id": new_slot}, {"email": new_slot}, {"teacher_id": adj_doc.get('new_slot_id')}, {"email": adj_doc.get('new_slot_id')}]})
+            # Note: new_slot currently holds slot id; adjusted faculty will be looked up later during swap application in generate()
+
+        database['adjustments'].insert_one(adj_doc)
+        print(f"Adjustment request recorded: {identifier} old_slot={old_slot} old_date={old_date} -> new_slot={new_slot} new_date={new_date} role={new_role}")
+        return jsonify({"success": True})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/upload_adjustment_pdf', methods=['POST'])
+def upload_adjustment_pdf():
+    # Accepts multipart/form-data: 'file' (PDF) and 'identifier' (user email or teacher_id)
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    file = request.files['file']
+    identifier = (request.form.get('identifier','') or '').strip()
+    if file.filename == '' or not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Please upload a PDF file'}), 400
+
+    try:
+        import io as _io
+        # Read PDF bytes
+        fp = file.stream.read()
+        # Extract text
+        text = ''
+        sig_present = False
+        try:
+            import io as _io
+            with pdfplumber.open(_io.BytesIO(fp)) as pdf:
+                for p in pdf.pages:
+                    t = p.extract_text()
+                    if t: text += '\n' + t
+                    if p.images and len(p.images) > 0:
+                        sig_present = True
+        except Exception:
+            # fallback to PyPDF2 text extraction
+            try:
+                reader = PdfReader(_io.BytesIO(fp))
+                for p in reader.pages:
+                    try:
+                        t = p.extract_text() or ''
+                        text += '\n' + t
+                    except: continue
+                # images detection not available in PyPDF2 easily
+            except Exception:
+                text = ''
+
+        ltext = (text or '').lower()
+        if not sig_present and ('signature' in ltext or 'signed' in ltext):
+            sig_present = True
+
+        # Parse Through HOD and Applicant Faculty fields if present
+        import re
+        hod = None
+        m = re.search(r'Through\s*HOD[:\-\s]*([A-Za-z .]+)', text, re.IGNORECASE)
+        if m:
+            hod = m.group(1).strip()
+
+        applicant_name = None
+        m2 = re.search(r'Applicant\s*Faculty[:\-\s]*([A-Za-z0-9 @.()\-]+)', text, re.IGNORECASE)
+        if m2:
+            applicant_name = m2.group(1).strip()
+
+        # Attempt to resolve applicant to teacher_id via DB
+        db = get_db()
+        applicant_id = None
+        if identifier:
+            q = {'$or': [{'email': identifier}, {'teacher_id': identifier}]}
+            user = db['teachers'].find_one(q)
+            if user:
+                applicant_id = user.get('teacher_id') or user.get('email')
+        if not applicant_id and applicant_name:
+            # try to match by name
+            user = db['teachers'].find_one({'name': {'$regex': applicant_name, '$options': 'i'}})
+            if user:
+                applicant_id = user.get('teacher_id') or user.get('email')
+
+        # Parse swaps: look for lines that mention two teacher ids and two dates
+        swaps = []
+        lines = [ln.strip() for ln in (text or '').splitlines() if ln.strip()]
+        tid_re = re.compile(r'\bT\d+\b', re.IGNORECASE)
+        date_re = re.compile(r'\b\d{1,2}[-/]\w{3,9}[-/]\d{2,4}\b|\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b')
+        sess_re = re.compile(r'\b(Morning|Afternoon|Evening|Practical|\d{1,2}:\d{2})\b', re.IGNORECASE)
+        for ln in lines:
+            tids = tid_re.findall(ln)
+            dates = date_re.findall(ln)
+            sess = sess_re.findall(ln)
+            if len(tids) >= 2 and len(dates) >= 2:
+                # assume order: applicant_tid, adjusted_tid, old_date, new_date (or similar)
+                # pick first two tids and first two dates
+                s = {
+                    'applicant_id': applicant_id or (tids[0] if tids else ''),
+                    'adjusted_id': tids[1] if len(tids) > 1 else '',
+                    'old_date': dates[0] if len(dates) > 0 else '',
+                    'new_date': dates[1] if len(dates) > 1 else '',
+                    'old_session': sess[0] if sess else '',
+                    'new_session': sess[1] if len(sess) > 1 else '' ,
+                    'raw': ln
+                }
+                swaps.append(s)
+
+        # If no swaps found via lines, try pairing global ids/dates
+        if not swaps:
+            tids_all = tid_re.findall(text)
+            dates_all = date_re.findall(text)
+            for i in range(min(len(tids_all)-1, len(dates_all)-1)):
+                swaps.append({
+                    'applicant_id': applicant_id or tids_all[i],
+                    'adjusted_id': tids_all[i+1],
+                    'old_date': dates_all[i],
+                    'new_date': dates_all[i+1],
+                    'old_session': '', 'new_session': '', 'raw': ''
+                })
+
+        # Require signature present for valid adjustment PDFs
+        if not sig_present:
+            return jsonify({'error': 'Signature not detected on PDF. A handwritten signature is required for duty adjustments.'}), 400
+
+        # Allow any HOD value: prefer parsed HOD, otherwise accept `hod` provided in form data
+        if not hod:
+            hod = (request.form.get('hod', '') or '').strip()
+
+        # Applicant identity must still be resolvable
+        if not applicant_id:
+            return jsonify({'error': 'Applicant identity could not be resolved; ensure you are logged in or PDF contains Applicant Faculty field.'}), 400
+
+        # Normalize and enrich swap entries: ensure explicit fields for next/swapped duty
+        import pandas as _pd
+        def _norm(d):
+            try:
+                dt = _pd.to_datetime(str(d), dayfirst=True, errors='coerce')
+                if _pd.isna(dt): return str(d)
+                return dt.strftime('%d-%b-%Y')
+            except Exception:
+                return str(d)
+
+        enriched_swaps = []
+        for s in swaps:
+            a_id = s.get('applicant_id') or applicant_id
+            adj_id = s.get('adjusted_id')
+            old_date_raw = s.get('old_date') or ''
+            new_date_raw = s.get('new_date') or ''
+            old_sess = (s.get('old_session') or '').strip()
+            new_sess = (s.get('new_session') or '').strip()
+            old_date = _norm(old_date_raw)
+            new_date = _norm(new_date_raw)
+
+            enriched_swaps.append({
+                'applicant_id': a_id,
+                'adjusted_id': adj_id,
+                'swapped_duty_date': old_date,
+                'swapped_duty_session': old_sess,
+                'next_duty_date': new_date,
+                'next_duty_session': new_sess,
+                'raw': s.get('raw','')
+            })
+
+        # Do NOT save PDF bytes to disk. Store only parsed metadata and enriched swap fields.
+        created_at = datetime.utcnow().isoformat()
+        created_docs = []
+        for s in enriched_swaps:
+            # Create document with legacy keys (keep existing behavior) plus explicit swap fields
+            doc = {
+                'teacher1_id': s.get('applicant_id'),
+                'teacher2_id': s.get('adjusted_id'),
+                'teacher1_date': s.get('swapped_duty_date'),
+                'teacher1_session': s.get('swapped_duty_session'),
+                'teacher2_date': s.get('next_duty_date'),
+                'teacher2_session': s.get('next_duty_session'),
+                'applicant_id': s.get('applicant_id'),
+                'adjusted_id': s.get('adjusted_id'),
+                'swapped_duty_date': s.get('swapped_duty_date'),
+                'swapped_duty_session': s.get('swapped_duty_session'),
+                'next_duty_date': s.get('next_duty_date'),
+                'next_duty_session': s.get('next_duty_session'),
+                'reason': request.form.get('reason',''),
+                'status': 'Pending',
+                'submitted_at': created_at,
+                'approved_by': None,
+                'approved_at': None,
+                'raw': s.get('raw',''),
+                'pdf_saved': False
+            }
+            res = db['duty_adjustments'].insert_one(doc)
+            doc['_id'] = str(res.inserted_id)
+            created_docs.append(doc)
+
+            # Also add a clear formatted view required by validator dashboards
+            # Keep keys explicit: who it's swapped with, session, and dates
+            formatted_view = {
+                'identifier': identifier or '',
+                'applicant_id': s.get('applicant_id') or '',
+                'through_hod': hod or '',
+                'swapped_with': s.get('adjusted_id') or '',
+                'swapped_session': s.get('swapped_duty_session') or s.get('old_session','') or '',
+                'swapped_duty_date': s.get('swapped_duty_date') or '',
+                'next_duty_date': s.get('next_duty_date') or '',
+                'next_duty_session': s.get('next_duty_session') or s.get('new_session','') or '',
+                'signature_present': bool(sig_present),
+                'created_at': created_at,
+                'status': 'pending'
+            }
+            try:
+                db['duty_adjustments'].update_one({'_id': res.inserted_id}, {'$set': {'formatted_view': formatted_view}})
+            except Exception:
+                # best-effort: don't fail the whole request if update fails
+                pass
+
+        # Also save the parsed adjustments for auditing (without saving PDF bytes)
+        audit = {
+            'identifier': identifier,
+            'applicant_id': applicant_id,
+            'through_hod': hod,
+            'applicant_name': applicant_name,
+            'signature_present': True,
+            'swaps': enriched_swaps,
+            'created_at': created_at,
+            'status': 'parsed',
+            'pdf_saved': False
+        }
+        db['adjustments'].insert_one(audit)
+
+        return jsonify({'success': True, 'created': created_docs})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/adjustments', methods=['GET'])
+def get_adjustments():
+    """Return parsed duty adjustments (no PDF bytes) for review or dashboards."""
+    try:
+        db = get_db()
+        docs = list(db['duty_adjustments'].find({}).sort('submitted_at', -1).limit(200))
+        out = []
+        for d in docs:
+            # convert ObjectId to str and remove heavy/unnecessary fields
+            d = dict(d)
+            d['_id'] = str(d.get('_id'))
+            d.pop('raw', None)
+            d.pop('pdf_path', None)
+            d.pop('pdf_saved', None)
+            out.append(d)
+        return jsonify({'adjustments': out})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/generate", methods=["POST"])
 def generate():
     """
@@ -194,7 +509,7 @@ def generate():
     # -----------------------------------------------
     # 1b. Validate required Excel sheets are present
     # -----------------------------------------------
-    REQUIRED_SHEETS = ["Student_Courses", "Courses", "Rooms", "Teachers", "Preferences"]
+    REQUIRED_SHEETS = ["Student_Courses", "Courses", "Rooms", "Teachers"]
     try:
         import openpyxl as _openpyxl
         _wb = _openpyxl.load_workbook(temp_path, read_only=True)
@@ -217,6 +532,17 @@ def generate():
         student_courses, loaded_slots, course_meta, enrolled_counts = load_data(temp_path)
     except Exception as e:
         return jsonify({"error": f"Error loading data: {str(e)}"}), 500
+
+    # Helper: normalize date strings to dd-Mon-YYYY (e.g., 26-Feb-2026)
+    import pandas as _pd
+    def _normalize_date(s):
+        if not s: return ''
+        try:
+            dt = _pd.to_datetime(str(s), dayfirst=True, errors='coerce')
+            if pd.isna(dt): return str(s)
+            return dt.strftime('%d-%b-%Y')
+        except Exception:
+            return str(s)
 
     # 2a. Filter data based on year and branch
     if year_filter != "ALL" or branch_filter != "ALL":
@@ -497,6 +823,101 @@ def generate():
         assignments, unassigned, teacher_duty_count = assign_teachers(
             teachers, duties, fairness_map=fairness_map, db_duty_counts=db_duty_counts
         )
+        # -----------------------
+        # Apply parsed duty adjustment swaps recorded via PDF uploads
+        # -----------------------
+        try:
+            db = get_db()
+            parsed_adjs = list(db['adjustments'].find({"status": "parsed"}))
+            if parsed_adjs:
+                # Helper to normalize dates
+                import pandas as _pd
+                def _norm(d):
+                    try:
+                        dt = _pd.to_datetime(str(d), dayfirst=True, errors='coerce')
+                        if pd.isna(dt): return str(d)
+                        return dt.strftime('%d-%b-%Y')
+                    except Exception:
+                        return str(d)
+
+                # Work on assignments in-place
+                for adj in parsed_adjs:
+                    applicant = adj.get('applicant_id') or adj.get('identifier')
+                    hod = adj.get('through_hod')
+                    sig = adj.get('signature_present', False)
+                    swaps = adj.get('swaps', [])
+                    applied_any = False
+                    # Require applicant identity and signature; HOD is optional
+                    if not applicant or not sig:
+                        # mark rejected
+                        db['adjustments'].update_one({'_id': adj['_id']}, {'$set': {'status': 'rejected', 'rejected_reason': 'missing applicant or signature'}})
+                        continue
+
+                    for s in swaps:
+                        # support both legacy keys (old_date/new_date) and enriched keys
+                        old_d = _norm(s.get('old_date') or s.get('swapped_duty_date'))
+                        new_d = _norm(s.get('new_date') or s.get('next_duty_date'))
+                        old_sess = (s.get('old_session') or s.get('swapped_duty_session') or '').strip().lower()
+                        new_sess = (s.get('new_session') or s.get('next_duty_session') or '').strip().lower()
+                        adjusted_id = s.get('adjusted_id')
+
+                        # find assignment entries
+                        a_idx = next((i for i, a in enumerate(assignments) if (str(a.get('teacher_id')) == str(applicant) or str(a.get('teacher_name')).lower() == str(applicant).lower()) and _norm(a.get('date')) == old_d and (old_sess in str(a.get('session','')).lower() or old_sess=='')), None)
+                        b_idx = next((i for i, a in enumerate(assignments) if (str(a.get('teacher_id')) == str(adjusted_id) or str(a.get('teacher_name')).lower() == str(adjusted_id).lower()) and _norm(a.get('date')) == new_d and (new_sess in str(a.get('session','')).lower() or new_sess=='')), None)
+
+                        if a_idx is None or b_idx is None:
+                            # cannot apply this swap; log skip
+                            db['adjustments'].update_one({'_id': adj['_id']}, {'$push': {'skipped': {'swap': s, 'reason': 'matching assignment not found'}}})
+                            continue
+
+                        if assignments[a_idx]['teacher_id'] == assignments[b_idx]['teacher_id']:
+                            db['adjustments'].update_one({'_id': adj['_id']}, {'$push': {'skipped': {'swap': s, 'reason': 'same teacher'}}})
+                            continue
+
+                        # Check duplicate/conflict: ensure swapping does not create duplicate assignment for either teacher at the other's slot
+                        # For applicant, ensure they don't already have another assignment at the new slot (excluding a_idx)
+                        def has_conflict(tid, date, slot):
+                            return any(True for i,a in enumerate(assignments) if i!=a_idx and str(a.get('teacher_id'))==str(tid) and _norm(a.get('date'))==date and a.get('slot')==slot)
+
+                        a_slot = assignments[a_idx].get('slot')
+                        b_slot = assignments[b_idx].get('slot')
+
+                        if has_conflict(assignments[a_idx]['teacher_id'], new_d, b_slot) or has_conflict(assignments[b_idx]['teacher_id'], old_d, a_slot):
+                            db['adjustments'].update_one({'_id': adj['_id']}, {'$push': {'skipped': {'swap': s, 'reason': 'would create conflict'}}})
+                            continue
+
+                        # Perform swap of teacher_id and teacher_name
+                        t1_id = assignments[a_idx]['teacher_id']
+                        t1_name = assignments[a_idx]['teacher_name']
+                        t2_id = assignments[b_idx]['teacher_id']
+                        t2_name = assignments[b_idx]['teacher_name']
+
+                        assignments[a_idx]['teacher_id'] = t2_id
+                        assignments[a_idx]['teacher_name'] = t2_name
+                        assignments[b_idx]['teacher_id'] = t1_id
+                        assignments[b_idx]['teacher_name'] = t1_name
+
+                        # record applied swap with normalized fields
+                        applied_record = {
+                            'applicant_id': applicant,
+                            'adjusted_id': adjusted_id,
+                            'swapped_duty_date': old_d,
+                            'swapped_duty_session': old_sess,
+                            'next_duty_date': new_d,
+                            'next_duty_session': new_sess,
+                            'raw': s.get('raw','')
+                        }
+                        db['adjustments'].update_one({'_id': adj['_id']}, {'$push': {'applied': {'swap': applied_record, 'applied_at': datetime.utcnow().isoformat()}}})
+                        applied_any = True
+
+                    # finalize status
+                    if applied_any:
+                        db['adjustments'].update_one({'_id': adj['_id']}, {'$set': {'status': 'applied', 'applied_at': datetime.utcnow().isoformat()}})
+                    else:
+                        # if none applied, mark rejected if had skipped entries
+                        db['adjustments'].update_one({'_id': adj['_id']}, {'$set': {'status': 'skipped'}})
+        except Exception as adj_err:
+            print(f"Adjustment apply warning: {adj_err}")
     except Exception as e:
         return jsonify({"error": f"Error in teacher assignment: {str(e)}"}), 500
     # -----------------------
@@ -676,22 +1097,268 @@ def export_excel():
     return send_file(bio, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name='timetable_export.xlsx')
 
 
+@app.route('/admin/duty_adjustments', methods=['GET'])
+def admin_list_adjustments():
+    status = request.args.get('status')
+    db = get_db()
+    q = {}
+    if status:
+        q['status'] = status
+    docs = list(db['duty_adjustments'].find(q))
+    for d in docs:
+        d['_id'] = str(d.get('_id'))
+    return jsonify({'results': docs})
+
+
+@app.route('/duty_adjustments', methods=['GET'])
+def list_my_adjustments():
+    identifier = (request.args.get('identifier') or '').strip()
+    if not identifier:
+        return jsonify({'error': 'identifier required'}), 400
+    db = get_db()
+    # Resolve identifier: allow either email or teacher_id
+    teacher = db['teachers'].find_one({'$or': [{'email': identifier}, {'teacher_id': identifier}]})
+    canonical_tid = teacher.get('teacher_id') if teacher else None
+
+    q = {'$or': []}
+    q['$or'].append({'teacher1_id': identifier})
+    q['$or'].append({'teacher2_id': identifier})
+    if canonical_tid:
+        q['$or'].append({'teacher1_id': canonical_tid})
+        q['$or'].append({'teacher2_id': canonical_tid})
+
+    docs = list(db['duty_adjustments'].find(q))
+    for d in docs:
+        d['_id'] = str(d.get('_id'))
+    return jsonify({'results': docs})
+
+
+@app.route('/duty_adjustments/<adj_id>/pdf', methods=['GET'])
+def get_adj_pdf(adj_id):
+    db = get_db()
+    from bson.objectid import ObjectId
+    try:
+        doc = db['duty_adjustments'].find_one({'_id': ObjectId(adj_id)})
+    except Exception:
+        return jsonify({'error': 'Invalid id'}), 400
+    if not doc:
+        return jsonify({'error': 'Not found'}), 404
+    path = doc.get('pdf_path')
+    if not path or not os.path.exists(path):
+        return jsonify({'error': 'File not available'}), 404
+    return send_file(path)
+
+
+@app.route('/admin/duty_adjustments/<adj_id>/approve', methods=['POST'])
+def approve_adjustment(adj_id):
+    approver = (request.json.get('approver') or '').strip()
+    db = get_db()
+    from bson.objectid import ObjectId
+    try:
+        adj = db['duty_adjustments'].find_one({'_id': ObjectId(adj_id)})
+    except Exception:
+        return jsonify({'error': 'Invalid id'}), 400
+    if not adj:
+        return jsonify({'error': 'Request not found'}), 404
+    if adj.get('status') != 'Pending':
+        return jsonify({'error': 'Request not pending'}), 400
+
+    # Find latest timetable
+    tdoc = db['timetables'].find_one(sort=[('created_at', -1)])
+    if not tdoc:
+        return jsonify({'error': 'No timetable saved in DB'}), 400
+
+    duties = tdoc.get('teacher_duties', [])
+
+    # helper to match a duty for a teacher on date and session
+    def match_duty(tid, date, session):
+        for i, d in enumerate(duties):
+            if str(d.get('teacher_id')) == str(tid) and str(d.get('date')) == str(date):
+                # match session loosely
+                if not session or session.lower() in str(d.get('session','')).lower():
+                    return i, d
+        return None, None
+
+    # Support both legacy and normalized field names
+    t1 = adj.get('teacher1_id') or adj.get('applicant_id') or adj.get('identifier')
+    t2 = adj.get('teacher2_id') or adj.get('swap_applicant_id') or adj.get('adjusted_id')
+    t1_date = adj.get('teacher1_date') or adj.get('duty_date')
+    t1_sess = adj.get('teacher1_session') or adj.get('session')
+    t2_date = adj.get('teacher2_date') or adj.get('swap_duty_date')
+    t2_sess = adj.get('teacher2_session') or adj.get('swap_session')
+
+    i1, d1 = match_duty(t1, t1_date, t1_sess)
+    i2, d2 = match_duty(t2, t2_date, t2_sess)
+
+    if d1 is None or d2 is None:
+        return jsonify({'error': 'Matching duties not found for one or both teachers'}), 400
+
+    # Ensure they are not the same duty
+    if i1 == i2:
+        return jsonify({'error': 'Both duties refer to the same record'}), 400
+
+    # Swap teacher assignments (teacher_id & teacher_name)
+    d1_tid, d1_tname = d1.get('teacher_id'), d1.get('teacher_name')
+    d2_tid, d2_tname = d2.get('teacher_id'), d2.get('teacher_name')
+
+    duties[i1]['teacher_id'] = d2_tid
+    duties[i1]['teacher_name'] = d2_tname
+    duties[i2]['teacher_id'] = d1_tid
+    duties[i2]['teacher_name'] = d1_tname
+
+    # Persist updated timetable document (insert new snapshot to preserve history)
+    new_tdoc = dict(tdoc)
+    new_tdoc['_id'] = None
+    new_tdoc['created_at'] = datetime.utcnow().isoformat()
+    new_tdoc['teacher_duties'] = duties
+    db['timetables'].insert_one(new_tdoc)
+
+    # mark adjustment approved
+    db['duty_adjustments'].update_one({'_id': ObjectId(adj_id)}, {'$set': {'status': 'Approved', 'approved_by': approver, 'approved_at': datetime.utcnow().isoformat()}})
+
+    return jsonify({'success': True})
+
+
+@app.route('/admin/duty_adjustments/<adj_id>/reject', methods=['POST'])
+def reject_adjustment(adj_id):
+    reason = (request.json.get('reason') or '').strip()
+    approver = (request.json.get('approver') or '').strip()
+    db = get_db()
+    from bson.objectid import ObjectId
+    try:
+        adj = db['duty_adjustments'].find_one({'_id': ObjectId(adj_id)})
+    except Exception:
+        return jsonify({'error': 'Invalid id'}), 400
+    if not adj:
+        return jsonify({'error': 'Request not found'}), 404
+    if adj.get('status') != 'Pending':
+        return jsonify({'error': 'Request not pending'}), 400
+
+    db['duty_adjustments'].update_one({'_id': ObjectId(adj_id)}, {'$set': {'status': 'Rejected', 'rejected_reason': reason, 'approved_by': approver, 'approved_at': datetime.utcnow().isoformat()}})
+    return jsonify({'success': True})
+
+
+@app.route('/teacher_duties', methods=['GET'])
+def teacher_duties():
+    identifier = (request.args.get('identifier') or '').strip()
+    if not identifier:
+        return jsonify({'error': 'identifier required'}), 400
+    db = get_db()
+    # Resolve identifier: allow either email or teacher_id
+    teacher = db['teachers'].find_one({'$or': [{'email': identifier}, {'teacher_id': identifier}]})
+    canonical_tid = None
+    if teacher:
+        canonical_tid = teacher.get('teacher_id')
+
+    tdoc = db['timetables'].find_one(sort=[('created_at', -1)])
+    if not tdoc:
+        return jsonify({'error': 'No timetable saved'}), 400
+    duties = tdoc.get('teacher_duties', [])
+    res = []
+    for d in duties:
+        tid = str(d.get('teacher_id') or '')
+        if canonical_tid and tid == str(canonical_tid):
+            res.append(d)
+        elif tid == str(identifier):
+            res.append(d)
+
+    # Also fetch teacher record to return persisted history and counts
+    teacher_rec = None
+    try:
+        teacher_rec = db['teachers'].find_one({'$or': [{'email': identifier}, {'teacher_id': identifier}]})
+    except Exception:
+        teacher_rec = None
+
+    history = teacher_rec.get('history', []) if teacher_rec else []
+    duty_counts = teacher_rec.get('duty_counts', {}) if teacher_rec else {}
+
+    return jsonify({'duties': res, 'history': history, 'duty_counts': duty_counts, 'timetable_created_at': tdoc.get('created_at')})
+
+
 @app.route("/confirm", methods=["POST"])
 def confirm():
     data = request.json
     assignments = data.get("assignments", [])
     dept = data.get("department", "IT")
+    timetable_data = data.get('timetable')
 
     try:
+        # Normalize dates consistently and write new assignments
+        import pandas as _pd
+        def _norm_date(s):
+            try:
+                dt = _pd.to_datetime(str(s), dayfirst=True, errors='coerce')
+                if _pd.isna(dt):
+                    return str(s)
+                return dt.strftime('%d-%b-%Y')
+            except Exception:
+                return str(s)
+
+        db = get_db()
+
         for a in assignments:
-            is_high = a["role"] in ["Senior", "Squad"]
+            date_norm = _norm_date(a.get('date'))
+            is_high = a.get("role") in ["Senior", "Squad"]
             update_faculty_duty(
-                a["teacher_id"],
-                a["role"],
-                a["date"],
-                a["slot"],
+                a.get("teacher_id"),
+                a.get("role"),
+                date_norm,
+                a.get("slot"),
                 is_high_role=is_high
             )
+
+        # Save timetable snapshot to DB if provided
+        try:
+            if timetable_data:
+                db = get_db()
+                tdoc = {
+                    'created_at': datetime.utcnow().isoformat(),
+                    'department': dept,
+                    'timetable': timetable_data.get('timetable', []),
+                    'room_allocation': timetable_data.get('room_allocation', []),
+                    'teacher_duties': timetable_data.get('teacher_duties', []),
+                    'summary': timetable_data.get('summary', {})
+                }
+                db['timetables'].insert_one(tdoc)
+        except Exception as save_err:
+            print(f"Warning: failed to save timetable to DB: {save_err}")
+
+        # After adding new assignments, remove any previous/original duty history entries
+        # for teachers affected by applied swaps so their 'My Duties' won't show obsolete entries.
+        try:
+            applied_adjs = list(db['adjustments'].find({"status": "applied"}))
+            for adj in applied_adjs:
+                for rec in adj.get('applied', []):
+                    s = rec.get('swap', {})
+                    applicant = s.get('applicant_id') or adj.get('applicant_id') or adj.get('identifier')
+                    adjusted = s.get('adjusted_id')
+                    old_date = _norm_date(s.get('old_date') or s.get('swapped_duty_date'))
+                    new_date = _norm_date(s.get('new_date') or s.get('next_duty_date'))
+
+                    # remove applicant's old duty (old_date) from their history
+                    if applicant:
+                        tdoc = db['teachers'].find_one({'$or': [{'teacher_id': applicant}, {'email': applicant}]})
+                        if tdoc:
+                            # find matching history entry
+                            hist = next((h for h in tdoc.get('history', []) if str(h.get('exam_date')) == str(old_date)), None)
+                            if hist:
+                                role_assigned = hist.get('role_assigned') or hist.get('role') or 'Junior'
+                                role_key = role_assigned.lower() if role_assigned.lower() in ['junior', 'senior', 'squad'] else 'junior'
+                                db['teachers'].update_one({'_id': tdoc['_id']}, {'$pull': {'history': {'exam_date': old_date}}})
+                                db['teachers'].update_one({'_id': tdoc['_id']}, {'$inc': {f'duty_counts.{role_key}': -1}})
+
+                    # remove adjusted teacher's old duty (new_date) from their history
+                    if adjusted:
+                        tdoc = db['teachers'].find_one({'$or': [{'teacher_id': adjusted}, {'email': adjusted}]})
+                        if tdoc:
+                            hist = next((h for h in tdoc.get('history', []) if str(h.get('exam_date')) == str(new_date)), None)
+                            if hist:
+                                role_assigned = hist.get('role_assigned') or hist.get('role') or 'Junior'
+                                role_key = role_assigned.lower() if role_assigned.lower() in ['junior', 'senior', 'squad'] else 'junior'
+                                db['teachers'].update_one({'_id': tdoc['_id']}, {'$pull': {'history': {'exam_date': new_date}}})
+                                db['teachers'].update_one({'_id': tdoc['_id']}, {'$inc': {f'duty_counts.{role_key}': -1}})
+        except Exception as adj_err:
+            print(f"Adjustment finalize warning: {adj_err}")
 
         reset_triggered = check_reset_fairness(department=dept)
         return jsonify({"success": True, "reset_triggered": reset_triggered})

@@ -108,6 +108,13 @@
             </svg>
             Generator
           </div>
+          <div class="d-nav-item" onclick="showAdminAdjustments()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14" />
+              <rect x="7" y="7" width="10" height="6" rx="1" />
+            </svg>
+            Duty Adjustments
+          </div>
           <div class="d-nav-item" onclick="logout()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -304,6 +311,11 @@
           </div>
         </div>
 
+        <!-- DUTY ADJUSTMENT BUTTON -->
+        <div style="margin-top:16px">
+          <button class="cta" onclick="showDutyAdjustment()">Duty Adjustment</button>
+        </div>
+
         <!-- CHANGE PASSWORD -->
         <div class="dash-card mt-6">
           <div class="tbar">
@@ -412,12 +424,6 @@
         <div>
           <div class="snum" id="sc5">—</div>
           <div class="slabel">Duties Assigned</div>
-        </div>
-      </div>
-      <div class="scard" style="--acc:#ec4899"><span class="sico">🎯</span>
-        <div>
-          <div class="snum" id="sc6">—</div>
-          <div class="slabel">Pref. Satisfaction</div>
         </div>
       </div>
     </div>
@@ -573,8 +579,7 @@
                 <th>Teacher ID</th>
                 <th>Teacher</th>
                 <th>History</th>
-                <th>Priority</th>
-                <th>Room</th>
+                    <th>Room</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -603,6 +608,38 @@
     </div>
 
   </section>
+  <!-- DUTY ADJUSTMENT MODAL -->
+  <div id="dutyAdjustModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.6); align-items:center; justify-content:center; z-index:9999">
+    <div style="width:520px; background:#fff; border-radius:12px; padding:1rem 1.2rem; box-shadow:0 8px 30px rgba(2,6,23,0.25)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+        <h3 style="margin:0">Duty Adjustment</h3>
+        <button onclick="hideDutyAdjustment()" style="background:transparent;border:none;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div id="dutyAdjustBody" style="max-height:380px;overflow:auto;padding-right:.4rem">
+        <!-- populated dynamically: will contain a PDF upload control and parsed preview -->
+      </div>
+      <div style="display:flex;gap:0.6rem;justify-content:flex-end;margin-top:0.8rem">
+        <button class="cta" style="background:#e2e8f0;color:#111" onclick="hideDutyAdjustment()">Cancel</button>
+        <button class="cta" id="dutyRequestBtn" onclick="uploadAdjustmentPDF()">Upload PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN ADJUSTMENTS MODAL -->
+  <div id="adminAdjustModal" style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.6); align-items:center; justify-content:center; z-index:9999">
+    <div style="width:820px; background:#fff; border-radius:12px; padding:1rem 1.2rem; box-shadow:0 8px 30px rgba(2,6,23,0.25)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+        <h3 style="margin:0">Pending Duty Adjustment Requests</h3>
+        <button onclick="hideAdminAdjustments()" style="background:transparent;border:none;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div id="adminAdjustBody" style="max-height:420px;overflow:auto;padding-right:.4rem">
+        <!-- populated dynamically -->
+      </div>
+      <div style="display:flex;gap:0.6rem;justify-content:flex-end;margin-top:0.8rem">
+        <button class="cta" style="background:#e2e8f0;color:#111" onclick="hideAdminAdjustments()">Close</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const uzone = document.getElementById('uzone'), fi = document.getElementById('fileInput'),
@@ -780,53 +817,63 @@
         upcomingBody.innerHTML = '';
         pastBody.innerHTML     = '';
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Fetch latest duties from server to ensure live data
+        const identifier = user.identifier || user.teacher_id || '';
+        fetch('/teacher_duties?identifier=' + encodeURIComponent(identifier))
+          .then(r => r.json())
+          .then(res => {
+            const duties = res.duties || [];
+            const today = new Date(); today.setHours(0,0,0,0);
+            const upcoming = [];
+            const past = [];
 
-        const upcoming = [];
-        const past     = [];
+            duties.forEach(d => {
+              const examDate = new Date(d.date);
+              examDate.setHours(0,0,0,0);
+              if (!isNaN(examDate) && examDate >= today) upcoming.push(d);
+              else past.push(d);
+            });
 
-        if (user.history && user.history.length > 0) {
-          user.history.forEach(d => {
-            // Parse exam_date like "21-Jun-2026" or "2026-06-21"
-            const examDate = new Date(d.exam_date);
-            examDate.setHours(0, 0, 0, 0);
-            if (!isNaN(examDate) && examDate >= today) {
-              upcoming.push(d);
-            } else {
-              past.push(d);
+            upcoming.sort((a,b)=> new Date(a.date) - new Date(b.date));
+            past.sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+            function buildRow(d) {
+              const tr = document.createElement('tr');
+              tr.className = 'ri';
+              const slotLabel = d.slot || d.slot_id || '';
+              // Determine assigned location: prefer explicit room, fall back to Control/Roaming for ALL or empty rooms
+              let assignedLocation = '';
+              try {
+                if (String(d.course_id || '').toUpperCase() === 'ALL') {
+                  assignedLocation = (d.role || '').toLowerCase() === 'senior' ? 'Control' : 'Roaming';
+                } else {
+                  assignedLocation = d.room_assigned || d['Room Assigned'] || '';
+                  if (!assignedLocation) {
+                    assignedLocation = (d.role || '').toLowerCase() === 'senior' ? 'Control' : 'Roaming';
+                  }
+                }
+              } catch (e) { assignedLocation = 'N/A'; }
+              if (!assignedLocation) assignedLocation = 'N/A';
+
+              tr.innerHTML = `
+                <td><span class="mbadge">Slot ${slotLabel}</span></td>
+                <td>${d.date}</td>
+                <td><span class="rchip ${(d.role || '').toLowerCase()}">${d.role || ''}</span></td>
+                <td>${assignedLocation}</td>
+              `;
+              return tr;
             }
+
+            if (upcoming.length > 0) upcoming.forEach(d => upcomingBody.appendChild(buildRow(d)));
+            else upcomingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No upcoming duties scheduled.</td></tr>';
+
+            if (past.length > 0) past.forEach(d => pastBody.appendChild(buildRow(d)));
+            else pastBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
+          })
+          .catch(()=>{
+            upcomingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Unable to load duties.</td></tr>';
+            pastBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Unable to load duties.</td></tr>';
           });
-        }
-
-        // Sort upcoming ascending (soonest first), past descending (most recent first)
-        upcoming.sort((a, b) => new Date(a.exam_date) - new Date(b.exam_date));
-        past.sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date));
-
-        function buildRow(d) {
-          const tr = document.createElement('tr');
-          tr.className = 'ri';
-          const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
-          tr.innerHTML = `
-            <td><span class="mbadge">Slot ${d.slot_id}</span></td>
-            <td>${d.exam_date}</td>
-            <td><span class="rchip ${(d.role_assigned || '').toLowerCase()}">${d.role_assigned}</span></td>
-            <td>${assignedDate}</td>
-          `;
-          return tr;
-        }
-
-        if (upcoming.length > 0) {
-          upcoming.forEach(d => upcomingBody.appendChild(buildRow(d)));
-        } else {
-          upcomingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No upcoming duties scheduled.</td></tr>';
-        }
-
-        if (past.length > 0) {
-          past.forEach(d => pastBody.appendChild(buildRow(d)));
-        } else {
-          pastBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
-        }
       }
     }
 
@@ -844,45 +891,26 @@
     // On page load check session
     window.addEventListener('DOMContentLoaded', () => {
       const user = JSON.parse(localStorage.getItem('user'));
-      if (user) {
-        showDashboard(user);
-      } else {
-        logout();
-      }
+      if (user) showDashboard(user); else logout();
     });
-
-    function resetConfig() {
-      document.getElementById('yearSelect').value = "";
-      const branchSelect = document.getElementById('branchSelect');
-      branchSelect.innerHTML = originalBranchOptions;
-      branchSelect.value = "";
-      branchSelect.disabled = true;
-      document.getElementById('examTypeSelect').value = "";
-      document.getElementById('examTypeSelect').disabled = true;
-      document.getElementById('slotList').classList.add('disabled');
-      document.getElementById('slotList').innerHTML = '<p class="slot-placeholder">Select exam type to view slots</p>';
-      document.getElementById('uploadCard').classList.add('disabled');
-      document.getElementById('uzone').classList.add('disabled');
-      document.getElementById('fileInput').disabled = true;
-      selectedSlots.clear();
-      clearFile();
-    }
 
     function step1() {
       const year = document.getElementById('yearSelect').value;
       const branchSelect = document.getElementById('branchSelect');
+      if (!branchSelect) return;
       if (year === 'FY') {
         branchSelect.innerHTML = '<option value="ALL">FY (All Branches)</option>';
         branchSelect.value = 'ALL';
         branchSelect.disabled = true;
-        step2();
+        // call step2 to set exam type availability
+        try { step2(); } catch(e){}
       } else if (year) {
         branchSelect.innerHTML = originalBranchOptions;
-        branchSelect.value = "";
+        branchSelect.value = '';
         branchSelect.disabled = false;
       } else {
         branchSelect.innerHTML = originalBranchOptions;
-        branchSelect.value = "";
+        branchSelect.value = '';
         branchSelect.disabled = true;
       }
     }
@@ -967,10 +995,16 @@
           G = d;
           // Dates come from the Excel upload; no client-side start date stored
           setTimeout(() => {
-            render(d);
-            document.getElementById('loadScreen').style.display = 'none';
-            document.getElementById('uploadPage').style.display = 'none';
-            document.getElementById('resultsPage').style.display = 'block';
+            try {
+              render(d);
+            } catch (err) {
+              console.error('Render failed', err);
+              alert('Render error: ' + (err && err.message ? err.message : err));
+            } finally {
+              document.getElementById('loadScreen').style.display = 'none';
+              document.getElementById('uploadPage').style.display = 'none';
+              document.getElementById('resultsPage').style.display = 'block';
+            }
           }, 1500);
         })
         .catch(err => {
@@ -982,74 +1016,79 @@
     const slotCls = ['', 's1c', 's2c', 's3c', 's4c', 's5c', 's6c'];
     function schip(s) { return `<span class="schip ${slotCls[s] || 's1c'}">Slot ${s}</span>` }
 
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
     function render(d) {
-      const s = d.summary;
-      document.getElementById('sc1').textContent = s.total_courses;
-      document.getElementById('sc2').textContent = s.total_students;
-      document.getElementById('sc3').textContent = s.slots_used;
-      document.getElementById('sc4').textContent = s.conflicts_found === 0 ? '0 ✓' : s.conflicts_found;
-      document.getElementById('sc5').textContent = s.duties_assigned + '/' + (s.duties_assigned + s.duties_failed);
-      document.getElementById('sc6').textContent = s.pref_satisfaction + '%';
-      document.getElementById('rsub').textContent =
-        s.total_courses + ' courses · ' + s.slots_used + ' slots · ' + s.total_students + ' students';
+      const s = (d && d.summary) ? d.summary : {};
+      setText('sc1', s.total_courses || '');
+      setText('sc2', s.total_students || '');
+      setText('sc3', s.slots_used || '');
+      setText('sc4', (s.conflicts_found === 0 ? '0 ✓' : (s.conflicts_found || '')));
+      setText('sc5', (s.duties_assigned || 0) + '/' + ((s.duties_assigned || 0) + (s.duties_failed || 0)));
+      // Remove teacher preference percentage from summary display per request
+      setText('sc6', '');
+      const sc6 = document.getElementById('sc6'); if (sc6 && sc6.parentElement) sc6.parentElement.style.display = 'none';
+      setText('rsub', (s.total_courses || '') + ' courses · ' + (s.slots_used || '') + ' slots · ' + (s.total_students || '') + ' students');
 
-      const tb = document.querySelector('#ttbl tbody'); tb.innerHTML = '';
-      d.timetable.forEach((r, i) => {
+      const tb = document.querySelector('#ttbl tbody'); if (tb) tb.innerHTML = '';
+      (d.timetable || []).forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
         tr.innerHTML = `
-      <td><span class="mbadge">${r.course_id}</span></td>
-      <td class="ncell">${r.course_name}</td>
-      <td>${r.year}</td>
-      <td><span class="dtag">${r.department}</span></td>
+      <td><span class="mbadge">${r.course_id || ''}</span></td>
+      <td class="ncell">${r.course_name || ''}</td>
+      <td>${r.year || ''}</td>
+      <td><span class="dtag">${r.department || ''}</span></td>
       <td>${schip(r.slot)}</td>
-      <td class="mcell">${r.date}</td>
-      <td>${r.session}</td>
-      <td><strong>${r.enrolled_students}</strong></td>
+      <td class="mcell">${r.date || ''}</td>
+      <td>${r.session || ''}</td>
+      <td><strong>${r.enrolled_students || ''}</strong></td>
       <td class="mcell">${r.room_assigned || r['Room Assigned'] || ''}</td>`;
-        tb.appendChild(tr);
+        if (tb) tb.appendChild(tr);
       });
 
-      const rb = document.querySelector('#rtbl tbody'); rb.innerHTML = '';
-      d.room_allocation.forEach((r, i) => {
+      const rb = document.querySelector('#rtbl tbody'); if (rb) rb.innerHTML = '';
+      (d.room_allocation || []).forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
         tr.innerHTML = `
-      <td><span class="mbadge">${r.course_id}</span></td>
+      <td><span class="mbadge">${r.course_id || ''}</span></td>
       <td>${schip(r.slot)}</td>
-      <td class="mcell">${r.date}</td>
-      <td>${r.session}</td>
-      <td class="mcell rcell">${r.rooms_assigned}</td>
-      <td>${r.total_capacity}</td>
-      <td><span class="okchip">✓ ${r.status}</span></td>`;
-        rb.appendChild(tr);
+      <td class="mcell">${r.date || ''}</td>
+      <td>${r.session || ''}</td>
+      <td class="mcell rcell">${r.rooms_assigned || ''}</td>
+      <td>${r.total_capacity || ''}</td>
+      <td><span class="okchip">✓ ${r.status || ''}</span></td>`;
+        if (rb) rb.appendChild(tr);
       });
 
-      const tc = document.querySelector('#tctbl tbody'); tc.innerHTML = '';
-      d.teacher_duties.forEach((r, i) => {
+      const tc = document.querySelector('#tctbl tbody'); if (tc) tc.innerHTML = '';
+      (d.teacher_duties || []).forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
-        const rl = r.role.toLowerCase();
+        const rl = (r.role || '').toLowerCase();
         tr.innerHTML = `
       <td>${schip(r.slot)}</td>
-      <td class="mcell">${r.date}</td>
-      <td>${r.session}</td>
-      <td><span class="mbadge">${r.course_id}</span></td>
-      <td><span class="rchip ${rl}">${r.role}</span></td>
-      <td class="mcell">${r.teacher_id}</td>
+      <td class="mcell">${r.date || ''}</td>
+      <td>${r.session || ''}</td>
+      <td><span class="mbadge">${r.course_id || ''}</span></td>
+      <td><span class="rchip ${rl}">${r.role || ''}</span></td>
+      <td class="mcell">${r.teacher_id || ''}</td>
       <td>
         <div class="t-info">
-          <span class="t-name">${r.teacher_name}</span>
+          <span class="t-name">${r.teacher_name || ''}</span>
         </div>
       </td>
-      <td><span class="hbadge">${r.last_role}</span></td>
-      <td>${(r.is_priority === 'Yes' || r.is_priority === true) ? '<span class="pyes">✓ Yes</span>' : '<span class="pno">— No</span>'}</td>
+      <td><span class="hbadge">${r.last_role || ''}</span></td>
       <td class="mcell">${r.room_assigned || r['Room Assigned'] || ''}</td>`;
-        tc.appendChild(tr);
+        if (tc) tc.appendChild(tr);
       });
 
-      document.getElementById('uploadPage').style.display = 'none';
-      document.getElementById('resultsPage').style.display = 'block';
+      if (document.getElementById('uploadPage')) document.getElementById('uploadPage').style.display = 'none';
+      if (document.getElementById('resultsPage')) document.getElementById('resultsPage').style.display = 'block';
       setTimeout(() => moveInd(document.querySelector('.ptab.on')), 80);
     }
 
@@ -1108,7 +1147,7 @@
         ])];
       } else {
         fn = 'teacher_duties.csv';
-        rows = [['slot', 'date', 'course_id', 'role', 'teacher_id', 'teacher_name', 'is_priority', 'room_assigned'],
+        rows = [['slot', 'date', 'course_id', 'role', 'teacher_id', 'teacher_name', 'room_assigned'],
         ...G.teacher_duties.map(r => [
           r.slot,
           resolveDate(r.date),
@@ -1116,7 +1155,6 @@
           r.role,
           r.teacher_id,
           `"${r.teacher_name}"`,
-          (r.is_priority === 'Yes' || r.is_priority === true) ? 'Yes' : 'No',
           (r.room_assigned || r['Room Assigned'] || '')
         ])];
       }
@@ -1188,7 +1226,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assignments: G.teacher_duties,
-          department: document.getElementById('branchSelect').value
+          department: document.getElementById('branchSelect').value,
+          timetable: G
         })
       })
         .then(r => r.json())
@@ -1269,6 +1308,171 @@
           msg.style.color = '#f87171';
         });
     }
+
+    // DUTY ADJUSTMENT: show modal, pick a duty, and send an adjustment request
+    function showDutyAdjustment() {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user) { alert('Please log in as faculty to upload duty adjustment PDF.'); return; }
+
+      const body = document.getElementById('dutyAdjustBody');
+      body.innerHTML = '';
+
+      const info = document.createElement('div');
+      info.innerHTML = '<div style="margin-bottom:.5rem">Upload a signed Duty Adjustment PDF (single page preferred). The PDF will be parsed and discarded — only the parsed swap data is saved.</div>';
+      const inputWrap = document.createElement('div');
+      inputWrap.style.display = 'flex'; inputWrap.style.gap = '.6rem'; inputWrap.style.alignItems = 'center';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file'; fileInput.accept = 'application/pdf'; fileInput.id = 'adj_pdf_input';
+      const note = document.createElement('div'); note.style.fontSize='.85rem'; note.style.color='var(--muted)'; note.textContent = 'One PDF only; uploading again will replace previous parsed data.';
+
+      body.appendChild(info); body.appendChild(fileInput); body.appendChild(note);
+      const preview = document.createElement('div'); preview.id = 'adj_pdf_preview'; preview.style.marginTop = '.8rem'; body.appendChild(preview);
+
+      document.getElementById('dutyRequestBtn').disabled = false;
+      document.getElementById('dutyAdjustModal').style.display = 'flex';
+      // Load user's previous requests
+      fetch('/duty_adjustments?identifier=' + encodeURIComponent(user.identifier || user.teacher_id || ''))
+        .then(r => r.json()).then(data => {
+          const prev = document.getElementById('adj_pdf_preview');
+          if (!prev) return;
+          const list = document.createElement('div');
+          list.style.marginTop = '.6rem';
+          if (data.results && data.results.length) {
+            data.results.forEach(req => {
+              const el = document.createElement('div');
+              el.style.padding = '.35rem 0';
+              el.textContent = `${req.teacher1_date || ''} ${req.teacher1_session || ''} ⇄ ${req.teacher2_date || ''} ${req.teacher2_session || ''} — ${req.status}`;
+              list.appendChild(el);
+            });
+            prev.appendChild(list);
+          }
+        }).catch(()=>{});
+    }
+
+    function hideDutyAdjustment() {
+      document.getElementById('dutyAdjustModal').style.display = 'none';
+    }
+
+    function requestDutyAdjustment() {
+      // Deprecated: use uploadAdjustmentPDF() for PDF workflow
+      alert('Please upload a PDF — this action is replaced by the PDF upload workflow.');
+    }
+
+    function uploadAdjustmentPDF() {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user) { alert('Please login first'); return; }
+      const input = document.getElementById('adj_pdf_input');
+      if (!input || !input.files || input.files.length === 0) { alert('Please select a PDF file to upload.'); return; }
+      const f = input.files[0];
+      if (!f.name.toLowerCase().endsWith('.pdf')) { alert('Please upload a PDF file.'); return; }
+
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('identifier', user.identifier || '');
+
+      const btn = document.getElementById('dutyRequestBtn');
+      const oldText = btn.textContent; btn.disabled = true; btn.textContent = 'Uploading...';
+
+      fetch('http://127.0.0.1:5000/upload_adjustment_pdf', { method: 'POST', body: fd })
+      .then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || 'Server error');
+        return data;
+      })
+      .then(d => {
+        const prev = document.getElementById('adj_pdf_preview');
+        prev.innerHTML = '<div style="font-weight:600;margin-bottom:.4rem">Parsed Adjustment Summary</div>' +
+          `<div style="font-size:.95rem">Through HOD: ${d.through_hod || '—'}</div>` +
+          `<div style="font-size:.95rem">Applicant: ${d.applicant || '—'}</div>` +
+          `<div style="font-size:.95rem">Signature present: ${d.signature_present ? 'Yes' : 'No'}</div>`;
+        if (d.swaps && d.swaps.length) {
+          const list = document.createElement('div');
+          list.style.marginTop = '.6rem';
+          d.swaps.forEach(s => {
+            const el = document.createElement('div');
+            el.style.padding = '.35rem 0';
+            const swappedDate = s.swapped_duty_date || s.old_date || '';
+            const swappedSess = s.swapped_duty_session || s.old_session || '';
+            const nextDate = s.next_duty_date || s.new_date || '';
+            const nextSess = s.next_duty_session || s.new_session || '';
+            el.textContent = `Swap: Applicant(${s.applicant_id}) ⇄ Adjusted(${s.adjusted_id}) | ${swappedDate} ${swappedSess} ↔ ${nextDate} ${nextSess}`;
+            list.appendChild(el);
+          });
+          prev.appendChild(list);
+        }
+        alert('PDF parsed and swaps saved. They will be applied during timetable generation.');
+      })
+      .catch(err => {
+        console.error('Upload error', err);
+        alert('Upload failed: ' + (err.message || 'Server error'));
+      })
+      .finally(() => { btn.disabled = false; btn.textContent = oldText; });
+    }
+
+    function showAdminAdjustments() {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!user || !user.is_admin) { alert('Admin access required'); return; }
+      const body = document.getElementById('adminAdjustBody');
+      body.innerHTML = '<div>Loading...</div>';
+      document.getElementById('adminAdjustModal').style.display = 'flex';
+      fetch('/admin/duty_adjustments?status=Pending')
+        .then(r=>r.json()).then(d=>{
+          body.innerHTML = '';
+          const list = d.results || [];
+          if (list.length===0) { body.innerHTML = '<div style="text-align:center;color:var(--muted)">No pending requests.</div>'; return; }
+          list.forEach(req => {
+            const row = document.createElement('div');
+            row.style.borderBottom = '1px solid #eee'; row.style.padding = '.6rem 0';
+            const info = document.createElement('div');
+            // Prefer normalized display fields if available
+            // Prefer exact formatted_view if present (user-requested schema)
+            const fv = req.formatted_view || null;
+            let applicant, swapid, ddate, sddate, sess, ssess, created, sig, status;
+            if (fv) {
+              applicant = fv.applicant_id || '';
+              swapid = fv['to whom it will be adjusted'] || '';
+              ddate = fv['duty date'] || '';
+              sddate = fv['swapped duty date'] || '';
+              sess = fv.session || '';
+              ssess = fv['swapped session'] || '';
+              created = fv.created_at || '';
+              sig = (typeof fv.signature_present !== 'undefined') ? (fv.signature_present ? 'Yes' : 'No') : 'Unknown';
+              status = fv.status || req.status || '';
+            } else {
+              applicant = req.applicant_id || req.teacher1_id || req.identifier || '';
+              swapid = req.swap_applicant_id || req.teacher2_id || req.adjusted_id || '';
+              ddate = req.duty_date || req.teacher1_date || '';
+              sddate = req.swap_duty_date || req.teacher2_date || '';
+              sess = req.session || req.teacher1_session || '';
+              ssess = req.swap_session || req.teacher2_session || '';
+              created = req.created_at || req.submitted_at || '';
+              sig = (typeof req.signature_present !== 'undefined') ? (req.signature_present ? 'Yes' : 'No') : (req.signature || 'Unknown');
+              status = req.status || '';
+            }
+            info.textContent = `${created} — Applicant:${applicant} (${ddate} ${sess}) ⇄ Swap:${swapid} (${sddate} ${ssess}) — Signed: ${sig} — ${status}`;
+            const actions = document.createElement('div'); actions.style.marginTop = '.4rem';
+            const viewBtn = document.createElement('button'); viewBtn.className='exbtn'; viewBtn.textContent='View PDF';
+            viewBtn.onclick = ()=> window.open('/duty_adjustments/'+req._id+'/pdf','_blank');
+            const approveBtn = document.createElement('button'); approveBtn.className='cta'; approveBtn.style.marginLeft='8px'; approveBtn.textContent='Approve';
+            approveBtn.onclick = ()=> {
+              if (!confirm('Approve this swap?')) return;
+              fetch('/admin/duty_adjustments/'+req._id+'/approve', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({approver: user.identifier || user.email || ''})})
+                .then(r=>r.json()).then(res=>{ if (res.success) { alert('Approved'); showAdminAdjustments(); } else alert(res.error || 'Error') }).catch(()=>alert('Error'));
+            };
+            const rejectBtn = document.createElement('button'); rejectBtn.className='cta'; rejectBtn.style.marginLeft='8px'; rejectBtn.style.background='#e2e8f0'; rejectBtn.textContent='Reject';
+            rejectBtn.onclick = ()=>{
+              const reason = prompt('Rejection reason (optional)');
+              fetch('/admin/duty_adjustments/'+req._id+'/reject', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({approver: user.identifier || user.email || '', reason: reason || ''})})
+                .then(r=>r.json()).then(res=>{ if (res.success) { alert('Rejected'); showAdminAdjustments(); } else alert(res.error || 'Error') }).catch(()=>alert('Error'));
+            };
+            actions.appendChild(viewBtn); actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
+            row.appendChild(info); row.appendChild(actions);
+            body.appendChild(row);
+          });
+        }).catch(()=>{ body.innerHTML='<div>Error loading requests</div>' });
+    }
+
+    function hideAdminAdjustments(){ document.getElementById('adminAdjustModal').style.display='none'; }
   </script>
 </body>
 

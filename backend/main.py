@@ -339,17 +339,8 @@ def allocate_rooms(final_data, rooms):
 
 def load_teacher_data(filepath):
     df_teachers = pd.read_excel(filepath, sheet_name="Teachers")
-    df_prefs = pd.read_excel(filepath, sheet_name="Preferences")
-    
+    # Preferences sheet deprecated: preferences ignored; use empty preferred_slots
     pref_map = {}
-    for _, row in df_prefs.iterrows():
-        t_id = safe_id(row["teacher_id"])
-        raw = str(row.get("preferred_slots", ""))
-        try:
-            slots = {int(s.strip()) for s in raw.split(",") if s.strip().isdigit()}
-        except: slots = set()
-        pref_map[t_id] = slots
-
     teachers = {}
     for _, row in df_teachers.iterrows():
         t_id = safe_id(row["teacher_id"])
@@ -358,7 +349,7 @@ def load_teacher_data(filepath):
             "name": safe_str(row["name"]),
             "role": safe_str(row["role"]),
             "department": safe_str(row.get("department", "General")),
-            "preferred_slots": pref_map.get(t_id, set())
+            "preferred_slots": set()
         }
     return teachers
 

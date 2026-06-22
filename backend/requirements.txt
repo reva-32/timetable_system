@@ -7,3 +7,5 @@ openpyxl
 numpy
 scipy
 tabulate
+pdfplumber
+PyPDF2
