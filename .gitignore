@@ -57,3 +57,10 @@ desktop.ini
 # ----------------------------
 *.log
 logs/
+
+# ----------------------------
+# Uploads & Exported Reports
+# ----------------------------
+backend/uploads/
+*.pdf
+*.xlsx

@@ -15,31 +15,109 @@ client = None
 db     = None
 
 
+def format_date_to_standard(raw_date):
+    """
+    Format any date string, datetime object, or raw value to '%d-%b-%Y' (e.g., '26-Nov-2026').
+    Returns 'TBD' if the date is invalid or empty.
+    """
+    if raw_date is None:
+        return "TBD"
+    
+    if hasattr(raw_date, "strftime"):
+        return raw_date.strftime("%d-%b-%Y")
+        
+    raw_str = str(raw_date).strip()
+    if not raw_str or raw_str.upper() in ("NAN", "NONE", "TBD", ""):
+        return "TBD"
+        
+    # If it's already in the correct format, return it
+    try:
+        datetime.strptime(raw_str, "%d-%b-%Y")
+        return raw_str
+    except ValueError:
+        pass
+        
+    # Try parsing via pandas to_datetime
+    try:
+        import pandas as pd
+        parsed = pd.to_datetime(raw_str, dayfirst=True, errors='coerce')
+        if not pd.isna(parsed):
+            return parsed.strftime("%d-%b-%Y")
+    except Exception:
+        pass
+        
+    return raw_str
+
+
 def migrate_db_schema():
-    """Migrate legacy flat 'duty_count' to structured 'duty_counts'."""
+    """Migrate legacy flat 'duty_count' to structured 'duty_counts', and ensure other schema defaults exist."""
     try:
         database = get_db()
         faculty_col = database["teachers"]
         for f in faculty_col.find():
+            update_fields = {}
+            unset_fields = {}
+
             if "duty_counts" not in f:
                 flat_count = f.get("duty_count", 0)
                 role = f.get("role", "Junior")
                 role_key = role.lower() if role.lower() in ["junior", "senior", "squad"] else "junior"
-                
-                duty_counts = {
+                update_fields["duty_counts"] = {
                     "squad": flat_count if role_key == "squad" else 0,
                     "junior": flat_count if role_key == "junior" else 0,
                     "senior": flat_count if role_key == "senior" else 0
                 }
+                if "duty_count" in f:
+                    unset_fields["duty_count"] = ""
+
+            if "has_served_high_role" not in f:
+                update_fields["has_served_high_role"] = False
+
+            if "last_role" not in f:
+                update_fields["last_role"] = "N/A"
+
+            # Normalize history dates to %d-%b-%Y
+            history = f.get("history", [])
+            history_changed = False
+            new_history = []
+            for h in history:
+                exam_date = h.get("exam_date")
+                if exam_date:
+                    normalized = format_date_to_standard(exam_date)
+                    if normalized != exam_date:
+                        h["exam_date"] = normalized
+                        history_changed = True
+                new_history.append(h)
                 
-                faculty_col.update_one(
-                    {"_id": f["_id"]},
-                    {
-                        "$set": {"duty_counts": duty_counts},
-                        "$unset": {"duty_count": ""}
-                    }
-                )
-        print("Schema migration complete: all legacy duty_count fields migrated to duty_counts.")
+            if "history" not in f:
+                update_fields["history"] = new_history
+            elif history_changed:
+                update_fields["history"] = new_history
+
+            if update_fields or unset_fields:
+                update_op = {}
+                if update_fields:
+                    update_op["$set"] = update_fields
+                if unset_fields:
+                    update_op["$unset"] = unset_fields
+                faculty_col.update_one({"_id": f["_id"]}, update_op)
+
+        # Normalize adjustments dates to %d-%b-%Y
+        adjustments_col = database["adjustments"]
+        for adj in adjustments_col.find():
+            adj_changed = False
+            adj_updates = {}
+            for field in ["current_date", "new_date"]:
+                val = adj.get(field)
+                if val:
+                    normalized = format_date_to_standard(val)
+                    if normalized != val:
+                        adj_updates[field] = normalized
+                        adj_changed = True
+            if adj_changed:
+                adjustments_col.update_one({"_id": adj["_id"]}, {"$set": adj_updates})
+
+        print("Schema migration complete: all legacy fields migrated and defaults set.")
     except Exception as e:
         print(f"Error during schema migration: {e}")
 
@@ -117,6 +195,8 @@ def init_faculty(teachers_data):
                     "junior": flat_count if role_key == "junior" else 0,
                     "senior": flat_count if role_key == "senior" else 0
                 }
+            if "has_served_high_role" not in existing:
+                update_fields["has_served_high_role"] = False
             faculty_col.update_one(
                 {"_id": existing["_id"]},
                 {"$set": update_fields}
@@ -129,15 +209,25 @@ def get_priority_faculty():
     return list(database["teachers"].find({"has_served_high_role": False}))
 
 
-def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False):
+def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False, course_id=None, room_assigned=None, session=None):
     """
     Update faculty duty status after confirmation.
 
     FIX: Query by teacher_id OR email to handle both old and new documents.
     """
     database    = get_db()
+    date = format_date_to_standard(date)
     role_key = role.lower() if role.lower() in ["junior", "senior", "squad"] else "junior"
     
+    # Sensible defaults for room based on role if not provided
+    if not room_assigned:
+        if role == "Senior":
+            room_assigned = "Control"
+        elif role == "Squad":
+            room_assigned = "Roaming"
+        else:
+            room_assigned = "TBD"
+
     update_data = {
         "$inc" : {f"duty_counts.{role_key}": 1},
         "$set" : {"last_role": role},
@@ -146,7 +236,10 @@ def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False):
                 "slot_id": str(slot_id),
                 "exam_date": date,
                 "role_assigned": role,
-                "assigned_at": datetime.utcnow().isoformat()
+                "course_id": course_id or "ALL",
+                "room_assigned": room_assigned,
+                "session": session or "TBD",
+                "assigned_at": datetime.utcnow().isoformat() + "Z"
             }
         }
     }

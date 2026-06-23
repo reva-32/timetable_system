@@ -34,6 +34,15 @@ app = Flask(
 )
 CORS(app)
 
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+
+@app.route("/uploads/<filename>")
+def serve_upload(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
 
 # ================================================
 # ROUTES
@@ -487,7 +496,7 @@ def generate():
                     }
                 db_duty_counts[tid] = dc
 
-            fairness_map   = {tid: f["has_served_high_role"] for tid, f in faculty_status.items()}
+            fairness_map   = {tid: f.get("has_served_high_role", False) for tid, f in faculty_status.items()}
         except Exception as db_err:
             print(f"DB Warning: {db_err}")
             fairness_map   = None
@@ -568,7 +577,7 @@ def generate():
                 "teacher_name" : a["teacher_name"],
                 "last_role"    : faculty_status.get(a["teacher_id"], {}).get("last_role", "N/A"),
                 "is_priority"  : "Yes" if not faculty_status.get(a["teacher_id"], {}).get("has_served_high_role", True) else "No",
-                "room_assigned" : (
+                "room_assigned" : a.get("room") or (
                     room_map.get((str(a.get("course_id")), str(a.get("slot")), str(a.get("date"))))
                     if a.get("course_id") != "ALL" else ("Control" if a.get("role_required") == "Senior" else "Roaming")
                 )
@@ -678,23 +687,461 @@ def export_excel():
 
 @app.route("/confirm", methods=["POST"])
 def confirm():
-    data = request.json
-    assignments = data.get("assignments", [])
+    data = request.json or {}
+    assignments = data.get("teacher_duties", []) or data.get("assignments", [])
     dept = data.get("department", "IT")
 
     try:
+        from db import get_db, update_faculty_duty, check_reset_fairness
+        database = get_db()
+        
+        # Save confirmed timetable to db (overwriting previous confirmed timetables)
+        database["timetables"].delete_many({}) # keep only the latest confirmed one
+        database["timetables"].insert_one({
+            "timetable": data.get("timetable", []),
+            "room_allocation": data.get("room_allocation", []),
+            "teacher_duties": assignments,
+            "summary": data.get("summary", {}),
+            "department": dept,
+            "confirmed_at": datetime.utcnow().isoformat() + "Z"
+        })
+
         for a in assignments:
-            is_high = a["role"] in ["Senior", "Squad"]
+            role_val = a.get("role") or a.get("role_required")
+            is_high = role_val in ["Senior", "Squad"]
             update_faculty_duty(
                 a["teacher_id"],
-                a["role"],
+                role_val,
                 a["date"],
                 a["slot"],
-                is_high_role=is_high
+                is_high_role=is_high,
+                course_id=a.get("course_id"),
+                room_assigned=a.get("room_assigned"),
+                session=a.get("session")
             )
 
         reset_triggered = check_reset_fairness(department=dept)
         return jsonify({"success": True, "reset_triggered": reset_triggered})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/confirmed_timetable", methods=["GET"])
+def get_confirmed_timetable():
+    from db import get_db
+    try:
+        database = get_db()
+        t = database["timetables"].find_one()
+        if t:
+            t["_id"] = str(t["_id"])
+            return jsonify(t)
+        return jsonify(None)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/clear_confirmed_timetable", methods=["POST"])
+def clear_confirmed_timetable():
+    from db import get_db
+    try:
+        database = get_db()
+        database["timetables"].delete_many({})
+        return jsonify({"success": True, "message": "Confirmed timetable cleared successfully."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ================================================
+# DUTY ADJUSTMENT ROUTES
+# ================================================
+
+from bson.objectid import ObjectId
+import time
+from datetime import datetime
+from werkzeug.utils import secure_filename
+
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xlsx'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/request_adjustment", methods=["POST"])
+def request_adjustment():
+    from db import get_db, format_date_to_standard
+    
+    teacher_id = request.form.get("teacher_id", "").strip()
+    current_date = format_date_to_standard(request.form.get("current_date", "").strip())
+    current_slot = request.form.get("current_slot", "").strip()
+    current_session = request.form.get("current_session", "").strip()
+    reason = request.form.get("reason", "").strip()
+    
+    if not teacher_id or not current_date or not current_slot:
+        return jsonify({"error": "Missing required fields"}), 400
+        
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+        
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed. Supported formats: PDF, PNG, JPG, JPEG, DOC, DOCX, XLSX"}), 400
+        
+    try:
+        database = get_db()
+        
+        # Get teacher details
+        teacher = database["teachers"].find_one({"teacher_id": teacher_id})
+        if not teacher:
+            teacher = database["teachers"].find_one({"email": teacher_id})
+        if not teacher:
+            return jsonify({"error": "Teacher not found"}), 404
+            
+        teacher_id = teacher.get("teacher_id") or teacher.get("email")
+        teacher_name = teacher.get("name", "Unknown")
+        
+        # Save file with a safe unique filename
+        original_ext = file.filename.rsplit('.', 1)[1].lower()
+        sec_name = secure_filename(file.filename)
+        filename = f"{int(time.time())}_{teacher_id}_{sec_name}"
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(file_path)
+        
+        # Insert adjustment request
+        request_doc = {
+            "teacher_id": teacher_id,
+            "teacher_name": teacher_name,
+            "current_date": current_date,
+            "current_slot": current_slot,
+            "current_session": current_session,
+            "reason": reason,
+            "file_path": filename,
+            "status": "Pending",
+            "created_at": datetime.utcnow().isoformat() + "Z"
+        }
+        
+        database["adjustments"].insert_one(request_doc)
+        return jsonify({"success": True, "message": "Adjustment request submitted successfully!"})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/adjustments", methods=["GET"])
+def get_adjustments():
+    from db import get_db
+    try:
+        database = get_db()
+        adjustments = list(database["adjustments"].find().sort("created_at", -1))
+        
+        # Clean ObjectIds for JSON serialization
+        for adj in adjustments:
+            adj["_id"] = str(adj["_id"])
+            
+        return jsonify(adjustments)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/adjustments/alternatives", methods=["GET"])
+def get_alternatives():
+    from db import get_db, format_date_to_standard
+    request_id = request.args.get("request_id")
+    if not request_id:
+        return jsonify({"error": "Missing request_id"}), 400
+        
+    try:
+        database = get_db()
+        adj = database["adjustments"].find_one({"_id": ObjectId(request_id)})
+        if not adj:
+            return jsonify({"error": "Adjustment request not found"}), 404
+            
+        requester_id = adj.get("teacher_id")
+        current_date = format_date_to_standard(adj.get("current_date"))
+        current_slot = str(adj.get("current_slot"))
+        
+        # Get all teachers and requester details
+        all_teachers = list(database["teachers"].find())
+        requester = next((t for t in all_teachers if t.get("teacher_id") == requester_id or t.get("email") == requester_id), None)
+        if not requester:
+            return jsonify({"error": "Requester teacher not found"}), 404
+            
+        requester_role = requester.get("role", "Junior")
+        
+        # Build requester_duties safely (handling key errors and types)
+        requester_duties = {}
+        for h in requester.get("history", []):
+            d_val = h.get("exam_date")
+            s_val = h.get("slot_id") or h.get("slot")
+            if d_val and s_val:
+                requester_duties[(str(d_val), str(s_val))] = h
+        
+        # Discover all unique slot combinations currently scheduled safely
+        all_slots = set()
+        for t in all_teachers:
+            for h in t.get("history", []):
+                d_val = h.get("exam_date")
+                s_val = h.get("slot_id") or h.get("slot")
+                if d_val and s_val:
+                    all_slots.add((str(d_val), str(s_val)))
+                
+        # Sort chronologically by parsing date and casting slot to int (handling exceptions safely)
+        from datetime import datetime
+        def slot_sort_key(x):
+            d_str, s_str = x
+            try:
+                d_obj = datetime.strptime(d_str, "%d-%b-%Y")
+            except Exception:
+                d_obj = datetime.min
+            try:
+                s_int = int(s_str)
+            except Exception:
+                s_int = 0
+            return (d_obj, s_int)
+            
+        # 1. Direct Moves: Unique slots where the requester has no duty
+        free_slots = []
+        for date_str, slot_str in sorted(all_slots, key=slot_sort_key):
+            if (date_str, slot_str) not in requester_duties:
+                free_slots.append({
+                    "date": date_str,
+                    "slot": slot_str
+                })
+                
+        # 2. Swaps: Find other teachers of the same role who are free on requester's slot 
+        # and requester is free on their slot.
+        swap_options = []
+        for t in all_teachers:
+            t_id = t.get("teacher_id") or t.get("email")
+            if t_id == requester_id:
+                continue
+            if t.get("role", "Junior") != requester_role:
+                continue
+                
+            t_duties = {}
+            for h in t.get("history", []):
+                d_val = h.get("exam_date")
+                s_val = h.get("slot_id") or h.get("slot")
+                if d_val and s_val:
+                    t_duties[(str(d_val), str(s_val))] = h
+            
+            for (t_date, t_slot), duty in t_duties.items():
+                if t_date == current_date and t_slot == current_slot:
+                    continue
+                    
+                # Check compatibility
+                t_free_on_requester_slot = (current_date, current_slot) not in t_duties
+                requester_free_on_t_slot = (t_date, t_slot) not in requester_duties
+                
+                if t_free_on_requester_slot and requester_free_on_t_slot:
+                    # Preferred slots
+                    req_prefs = requester.get("preferred_slots", [])
+                    if isinstance(req_prefs, set):
+                        req_prefs = list(req_prefs)
+                    
+                    try:
+                        req_pref = int(t_slot) in req_prefs or str(t_slot) in [str(p) for p in req_prefs]
+                    except ValueError:
+                        req_pref = str(t_slot) in [str(p) for p in req_prefs]
+                    
+                    t_prefs = t.get("preferred_slots", [])
+                    if isinstance(t_prefs, set):
+                        t_prefs = list(t_prefs)
+                    
+                    try:
+                        t_pref = int(current_slot) in t_prefs or str(current_slot) in [str(p) for p in t_prefs]
+                    except ValueError:
+                        t_pref = str(current_slot) in [str(p) for p in t_prefs]
+                    
+                    pref_score = (1 if req_pref else 0) + (1 if t_pref else 0)
+                    
+                    swap_options.append({
+                        "teacher_id": t_id,
+                        "teacher_name": t.get("name", "Unknown"),
+                        "date": t_date,
+                        "slot": t_slot,
+                        "requester_preferred": req_pref,
+                        "partner_preferred": t_pref,
+                        "pref_score": pref_score
+                    })
+                    
+        swap_options.sort(key=lambda x: -x["pref_score"])
+        
+        return jsonify({
+            "free_slots": free_slots,
+            "swap_options": swap_options
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/approve_adjustment", methods=["POST"])
+def approve_adjustment():
+    from db import get_db, format_date_to_standard
+    data = request.json or {}
+    request_id = data.get("request_id")
+    action_type = data.get("type")
+    new_date = format_date_to_standard(data.get("new_date"))
+    new_slot = data.get("new_slot")
+    swap_teacher_id = data.get("swap_teacher_id")
+    
+    if not request_id or not action_type or not new_date or not new_slot:
+        return jsonify({"error": "Missing required parameters"}), 400
+        
+    try:
+        database = get_db()
+        adj = database["adjustments"].find_one({"_id": ObjectId(request_id)})
+        if not adj:
+            return jsonify({"error": "Adjustment request not found"}), 404
+            
+        requester_id = adj.get("teacher_id")
+        current_date = format_date_to_standard(adj.get("current_date"))
+        current_slot = adj.get("current_slot")
+        
+        if action_type == "swap":
+            if not swap_teacher_id:
+                return jsonify({"error": "Swap partner ID required for swap type"}), 400
+                
+            # Retrieve documents
+            req_doc = database["teachers"].find_one({"$or": [{"teacher_id": requester_id}, {"email": requester_id}]})
+            partner_doc = database["teachers"].find_one({"$or": [{"teacher_id": swap_teacher_id}, {"email": swap_teacher_id}]})
+            if not req_doc or not partner_doc:
+                return jsonify({"error": "Requester or Swap partner not found"}), 404
+                
+            # Extract items
+            req_item = next((h for h in req_doc.get("history", []) if h.get("exam_date") == current_date and str(h.get("slot_id") or h.get("slot")) == str(current_slot)), {})
+            partner_item = next((h for h in partner_doc.get("history", []) if h.get("exam_date") == new_date and str(h.get("slot_id") or h.get("slot")) == str(new_slot)), {})
+            
+            # Swap histories in DB
+            res1 = database["teachers"].update_one(
+                {"$or": [{"teacher_id": requester_id}, {"email": requester_id}], "history.exam_date": current_date, "history.slot_id": str(current_slot)},
+                {"$set": {
+                    "history.$.exam_date": new_date,
+                    "history.$.slot_id": str(new_slot),
+                    "history.$.course_id": partner_item.get("course_id", "ALL"),
+                    "history.$.room_assigned": partner_item.get("room_assigned", "TBD"),
+                    "history.$.session": partner_item.get("session", "TBD")
+                }}
+            )
+            
+            res2 = database["teachers"].update_one(
+                {"$or": [{"teacher_id": swap_teacher_id}, {"email": swap_teacher_id}], "history.exam_date": new_date, "history.slot_id": str(new_slot)},
+                {"$set": {
+                    "history.$.exam_date": current_date,
+                    "history.$.slot_id": str(current_slot),
+                    "history.$.course_id": req_item.get("course_id", "ALL"),
+                    "history.$.room_assigned": req_item.get("room_assigned", "TBD"),
+                    "history.$.session": req_item.get("session", "TBD")
+                }}
+            )
+            
+        else: # direct move
+            # Try to look up another teacher's duty in the target slot to match the session/course/room details
+            target_course = "ALL"
+            target_room = "TBD"
+            target_session = "TBD"
+            
+            # Find a template duty scheduled in that target slot from other teachers' history
+            all_teachers = list(database["teachers"].find())
+            for t in all_teachers:
+                for h in t.get("history", []):
+                    if h.get("exam_date") == new_date and str(h.get("slot_id") or h.get("slot")) == str(new_slot):
+                        target_course = h.get("course_id", "ALL")
+                        target_room = h.get("room_assigned", "TBD")
+                        target_session = h.get("session", "TBD")
+                        break
+                if target_room != "TBD":
+                    break
+                    
+            res1 = database["teachers"].update_one(
+                {"$or": [{"teacher_id": requester_id}, {"email": requester_id}], "history.exam_date": current_date, "history.slot_id": str(current_slot)},
+                {"$set": {
+                    "history.$.exam_date": new_date,
+                    "history.$.slot_id": str(new_slot),
+                    "history.$.course_id": target_course,
+                    "history.$.room_assigned": target_room,
+                    "history.$.session": target_session
+                }}
+            )
+                
+        # Update request status in database
+        database["adjustments"].update_one(
+            {"_id": ObjectId(request_id)},
+            {"$set": {
+                "status": "Approved",
+                "resolved_at": datetime.utcnow().isoformat() + "Z",
+                "new_date": new_date,
+                "new_slot": new_slot,
+                "swap_teacher_id": swap_teacher_id if action_type == "swap" else None
+            }}
+        )
+        
+        return jsonify({"success": True, "message": "Adjustment approved successfully!"})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/reject_adjustment", methods=["POST"])
+def reject_adjustment():
+    from db import get_db
+    data = request.json or {}
+    request_id = data.get("request_id")
+    comments = data.get("comments", "").strip()
+    
+    if not request_id:
+        return jsonify({"error": "Missing request_id"}), 400
+        
+    try:
+        database = get_db()
+        database["adjustments"].update_one(
+            {"_id": ObjectId(request_id)},
+            {"$set": {
+                "status": "Rejected",
+                "resolved_at": datetime.utcnow().isoformat() + "Z",
+                "comments": comments
+            }}
+        )
+        return jsonify({"success": True, "message": "Adjustment request rejected."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/teacher/status", methods=["GET"])
+def get_teacher_status():
+    from db import get_db
+    identifier = request.args.get("identifier")
+    if not identifier:
+        return jsonify({"error": "Missing identifier"}), 400
+    try:
+        database = get_db()
+        user = database["teachers"].find_one({
+            "$or": [
+                {"email": identifier},
+                {"teacher_id": identifier}
+            ]
+        })
+        if not user:
+            return jsonify({"error": "Teacher not found"}), 404
+            
+        user_email = user.get("email", f"{user.get('teacher_id')}@pict.edu")
+        return jsonify({
+            "name"      : user.get("name"),
+            "role"      : user.get("role"),
+            "is_admin"  : user.get("is_admin", False),
+            "history"   : user.get("history", []),
+            "identifier": user_email
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -168,6 +168,7 @@ def safe_id(val, default="N/A"):
 
 
 def load_data(filepath):
+    from db import format_date_to_standard
     df_students = pd.read_excel(filepath, sheet_name="Student_Courses")
     df_courses  = pd.read_excel(filepath, sheet_name="Courses")
     try:
@@ -201,10 +202,7 @@ def load_data(filepath):
 
             idx = slot_id - 1
             raw_date = row["date"]
-            if hasattr(raw_date, "strftime"):
-                date_str = raw_date.strftime("%d-%b")
-            else:
-                date_str = str(raw_date)
+            date_str = format_date_to_standard(raw_date)
 
             slot_metadata[idx] = {
                 "display_id": slot_id,
@@ -229,20 +227,7 @@ def load_data(filepath):
             raw_date = row.get("date")
         elif "Date" in row.index:
             raw_date = row.get("Date")
-        exam_date_str = None
-        if raw_date is not None and raw_date not in ("", None) and not pd.isna(raw_date):
-            try:
-                if hasattr(raw_date, 'strftime'):
-                    exam_date_str = raw_date.strftime("%d-%b-%Y")
-                else:
-                    # Try to parse string-like dates
-                    parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
-                    if not pd.isna(parsed):
-                        exam_date_str = parsed.strftime("%d-%b-%Y")
-                    else:
-                        exam_date_str = str(raw_date).strip()
-            except Exception:
-                exam_date_str = str(raw_date).strip()
+        exam_date_str = format_date_to_standard(raw_date) if raw_date is not None else None
 
         # Optional session column in Courses sheet
         session = safe_str(row.get("session", "General"), default="General")
@@ -503,6 +488,7 @@ def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MA
             assignments.append({
                 "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
                 "session": duty["session"], "course_id": duty["course_id"],
+                "room": duty["room"],
                 "role_required": duty["role_required"], "teacher_id": teacher["id"],
                 "teacher_name": teacher["name"], "cost": int(cost) if cost >= 1 else cost
             })

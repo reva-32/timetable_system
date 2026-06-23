@@ -99,7 +99,7 @@
         </div>
 
         <div class="dash-nav">
-          <div class="d-nav-item active">
+          <div class="d-nav-item active" id="navGenerator" onclick="showAdminSection('generator')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7" />
               <rect x="14" y="3" width="7" height="7" />
@@ -107,6 +107,14 @@
               <rect x="3" y="14" width="7" height="7" />
             </svg>
             Generator
+          </div>
+          <div class="d-nav-item" id="navAdjustments" onclick="showAdminSection('adjustments')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <polyline points="16 11 18 13 22 9" />
+            </svg>
+            Adjustments
           </div>
           <div class="d-nav-item" onclick="logout()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -119,7 +127,8 @@
         </div>
       </div>
 
-      <div class="dash-grid">
+      <div class="dash-main" style="flex:1; display:flex; flex-direction:column;">
+        <div id="generatorView" class="dash-grid">
         <div class="dash-card">
           <h3>Exam Settings</h3>
           <div class="form-grid">
@@ -210,8 +219,33 @@
             </button>
           </div>
         </div>
+        </div>
+        
+        <!-- ADJUSTMENTS VIEW -->
+        <div id="adjustmentsView" style="display:none;" class="dash-card">
+          <div class="dash-header" style="margin-bottom: 24px; display:block; text-align:left;">
+            <h2 style="font-family: var(--inter); font-weight:700; font-size: 32px; color: #1e293b; margin-bottom: 6px;">Duty Adjustments</h2>
+            <p style="color: var(--txt-dim); font-size: 15px;">Review and manage faculty change requests.</p>
+          </div>
+          
+          <div class="tscroll" style="margin-top: 16px;">
+            <table style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Current Duty</th>
+                  <th>Reason & File</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="adjustmentsTableBody">
+                <!-- Filled dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   </section>
 
@@ -268,8 +302,12 @@
                 <tr>
                   <th>Slot</th>
                   <th>Date</th>
+                  <th>Session</th>
+                  <th>Course ID</th>
+                  <th>Room</th>
                   <th>Role</th>
                   <th>Assigned At</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="teacherUpcomingBody">
@@ -293,6 +331,9 @@
                 <tr>
                   <th>Slot</th>
                   <th>Date</th>
+                  <th>Session</th>
+                  <th>Course ID</th>
+                  <th>Room</th>
                   <th>Role</th>
                   <th>Assigned At</th>
                 </tr>
@@ -605,6 +646,28 @@
   </section>
 
   <script>
+    function parseCustomDate(dateStr) {
+      if (!dateStr) return new Date(NaN);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return new Date(dateStr);
+      }
+      const match = String(dateStr).match(/^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})$/);
+      if (match) {
+        const day = parseInt(match[1], 10);
+        const monthStr = match[2].toLowerCase();
+        const year = parseInt(match[3], 10);
+        const months = {
+          jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
+          jul:6, aug:7, sep:8, oct:9, nov:10, dec:11
+        };
+        const month = months[monthStr.substring(0, 3)];
+        if (month !== undefined) {
+          return new Date(year, month, day);
+        }
+      }
+      return new Date(dateStr);
+    }
+
     const uzone = document.getElementById('uzone'), fi = document.getElementById('fileInput'),
       fpill = document.getElementById('fpill'), fname = document.getElementById('fname'),
       genBtn = document.getElementById('genBtn');
@@ -763,9 +826,21 @@
         document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
 
         const confirmBtn = document.getElementById('confirmBtn');
-        if (confirmBtn) confirmBtn.style.display = 'inline-flex';
+        if (confirmBtn) {
+          confirmBtn.style.display = 'inline-flex';
+          confirmBtn.disabled = false;
+          confirmBtn.style.background = '';
+          confirmBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            Confirm & Publish
+          `;
+        }
 
         resetConfig();
+        checkConfirmedTimetable();
       } else {
         document.getElementById('loginPage').style.display = 'none';
         document.getElementById('uploadPage').style.display = 'none';
@@ -789,7 +864,7 @@
         if (user.history && user.history.length > 0) {
           user.history.forEach(d => {
             // Parse exam_date like "21-Jun-2026" or "2026-06-21"
-            const examDate = new Date(d.exam_date);
+            const examDate = parseCustomDate(d.exam_date);
             examDate.setHours(0, 0, 0, 0);
             if (!isNaN(examDate) && examDate >= today) {
               upcoming.push(d);
@@ -800,34 +875,78 @@
         }
 
         // Sort upcoming ascending (soonest first), past descending (most recent first)
-        upcoming.sort((a, b) => new Date(a.exam_date) - new Date(b.exam_date));
-        past.sort((a, b) => new Date(b.exam_date) - new Date(a.exam_date));
+        upcoming.sort((a, b) => parseCustomDate(a.exam_date) - parseCustomDate(b.exam_date));
+        past.sort((a, b) => parseCustomDate(b.exam_date) - parseCustomDate(a.exam_date));
 
-        function buildRow(d) {
+        function buildRow(d, isUpcoming) {
           const tr = document.createElement('tr');
           tr.className = 'ri';
           const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
+          
+          let actionHtml = '';
+          if (isUpcoming) {
+            actionHtml = `
+              <td>
+                <button class="cta" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; box-shadow: none;" 
+                  onclick="openAdjustmentModal('${d.slot_id}', '${d.exam_date}', '${d.role_assigned || ''}')">
+                  Request Change
+                </button>
+              </td>
+            `;
+          }
+          
+          const session = d.session || 'TBD';
+          const courseId = d.course_id || 'ALL';
+          const room = d.room_assigned || d.room || 'TBD';
+          
           tr.innerHTML = `
             <td><span class="mbadge">Slot ${d.slot_id}</span></td>
             <td>${d.exam_date}</td>
+            <td>${session}</td>
+            <td><span class="mbadge">${courseId}</span></td>
+            <td><span class="dtag">${room}</span></td>
             <td><span class="rchip ${(d.role_assigned || '').toLowerCase()}">${d.role_assigned}</span></td>
             <td>${assignedDate}</td>
+            ${actionHtml}
           `;
           return tr;
         }
 
         if (upcoming.length > 0) {
-          upcoming.forEach(d => upcomingBody.appendChild(buildRow(d)));
+          upcoming.forEach(d => upcomingBody.appendChild(buildRow(d, true)));
         } else {
-          upcomingBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No upcoming duties scheduled.</td></tr>';
+          upcomingBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted)">No upcoming duties scheduled.</td></tr>';
         }
 
         if (past.length > 0) {
-          past.forEach(d => pastBody.appendChild(buildRow(d)));
+          past.forEach(d => pastBody.appendChild(buildRow(d, false)));
         } else {
-          pastBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
+          pastBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
         }
       }
+    }
+
+    function checkConfirmedTimetable() {
+      fetch('http://127.0.0.1:5000/confirmed_timetable')
+        .then(async r => {
+          const data = await r.json();
+          if (data) {
+            G = data;
+            render(G);
+            document.getElementById('uploadPage').style.display = 'none';
+            document.getElementById('resultsPage').style.display = 'block';
+            
+            const confirmBtn = document.getElementById('confirmBtn');
+            if (confirmBtn) {
+              confirmBtn.innerHTML = '<span>Published Successfully ✓</span>';
+              confirmBtn.style.background = '#10b981';
+              confirmBtn.disabled = true;
+            }
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching confirmed timetable:", err);
+        });
     }
 
     function logout() {
@@ -906,9 +1025,33 @@
     }
 
     function reset() {
-      document.getElementById('resultsPage').style.display = 'none';
-      document.getElementById('uploadPage').style.display = 'block';
-      resetConfig();
+      if (G && G.confirmed_at) {
+        if (!confirm("This will clear the currently published schedule from the database. Are you sure you want to create a new schedule?")) {
+          return;
+        }
+        
+        fetch('http://127.0.0.1:5000/clear_confirmed_timetable', { method: 'POST' })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success) {
+              G = null;
+              document.getElementById('resultsPage').style.display = 'none';
+              document.getElementById('uploadPage').style.display = 'block';
+              resetConfig();
+            } else {
+              alert("Error clearing confirmed schedule: " + d.error);
+            }
+          })
+          .catch(err => {
+            alert("Connection error clearing schedule.");
+            console.error(err);
+          });
+      } else {
+        G = null;
+        document.getElementById('resultsPage').style.display = 'none';
+        document.getElementById('uploadPage').style.display = 'block';
+        resetConfig();
+      }
     }
 
     const selectedSlots = new Set();
@@ -965,6 +1108,21 @@
         })
         .then(d => {
           G = d;
+          
+          // Reset confirm button state for newly generated timetable
+          const confirmBtn = document.getElementById('confirmBtn');
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.style.background = '';
+            confirmBtn.innerHTML = `
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              Confirm & Publish
+            `;
+          }
+
           // Dates come from the Excel upload; no client-side start date stored
           setTimeout(() => {
             render(d);
@@ -1187,7 +1345,10 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          timetable: G.timetable,
+          room_allocation: G.room_allocation,
           assignments: G.teacher_duties,
+          summary: G.summary,
           department: document.getElementById('branchSelect').value
         })
       })
@@ -1269,7 +1430,550 @@
           msg.style.color = '#f87171';
         });
     }
+
+    function openAdjustmentModal(slot_id, exam_date, role) {
+      document.getElementById('adjSlot').value = slot_id;
+      document.getElementById('adjDate').value = exam_date;
+      document.getElementById('adjRole').value = role;
+      
+      document.getElementById('modalDutyDetails').innerHTML = `
+        <strong>Date:</strong> ${exam_date} &nbsp;|&nbsp; 
+        <strong>Slot:</strong> ${slot_id} &nbsp;|&nbsp; 
+        <strong>Role:</strong> ${role}
+      `;
+      
+      document.getElementById('modalFile').value = '';
+      document.getElementById('modalFileStatus').textContent = 'Drag & drop or click to browse';
+      document.getElementById('adjReason').value = '';
+      document.getElementById('modalError').textContent = '';
+      
+      document.getElementById('adjustmentModal').style.display = 'flex';
+    }
+
+    function closeAdjustmentModal() {
+      document.getElementById('adjustmentModal').style.display = 'none';
+    }
+
+    function handleModalFileSelect(input) {
+      const f = input.files[0];
+      if (f) {
+        document.getElementById('modalFileStatus').textContent = f.name + ' (' + (f.size / 1024 / 1024).toFixed(2) + ' MB)';
+      }
+    }
+
+    function submitAdjustmentRequest(e) {
+      e.preventDefault();
+      const err = document.getElementById('modalError');
+      err.textContent = '';
+      
+      const fileInput = document.getElementById('modalFile');
+      const f = fileInput.files[0];
+      if (!f) {
+        err.textContent = 'Please select an application file to upload.';
+        return;
+      }
+      
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const teacher_id = user.identifier || '';
+      
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('teacher_id', teacher_id);
+      fd.append('current_date', document.getElementById('adjDate').value);
+      fd.append('current_slot', document.getElementById('adjSlot').value);
+      fd.append('current_session', document.getElementById('adjRole').value === 'Senior' ? 'Morning' : 'Afternoon');
+      fd.append('reason', document.getElementById('adjReason').value.trim());
+      
+      const btn = e.target.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Submitting...</span>';
+      
+      fetch('/request_adjustment', {
+        method: 'POST',
+        body: fd
+      })
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Submission failed');
+        return d;
+      })
+      .then(d => {
+        alert(d.message);
+        closeAdjustmentModal();
+        refreshTeacherDuties(teacher_id);
+      })
+      .catch(error => {
+        err.textContent = error.message;
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      });
+    }
+
+    function refreshTeacherDuties(identifier) {
+      fetch('/teacher/status?identifier=' + encodeURIComponent(identifier))
+      .then(r => r.json())
+      .then(user => {
+        localStorage.setItem('user', JSON.stringify(user));
+        showDashboard(user);
+      })
+      .catch(err => {
+        console.error('Error refreshing teacher dashboard:', err);
+      });
+    }
+
+    let activeRescheduleTab = 'swap';
+    let currentAlternatives = null;
+
+    function showAdminSection(section) {
+      const navGen = document.getElementById('navGenerator');
+      const navAdj = document.getElementById('navAdjustments');
+      const genView = document.getElementById('generatorView');
+      const adjView = document.getElementById('adjustmentsView');
+
+      if (section === 'generator') {
+        navGen.classList.add('active');
+        navAdj.classList.remove('active');
+        genView.style.display = 'grid';
+        adjView.style.display = 'none';
+      } else {
+        navGen.classList.remove('active');
+        navAdj.classList.add('active');
+        genView.style.display = 'none';
+        adjView.style.display = 'block';
+        loadAdjustments();
+      }
+    }
+
+    function loadAdjustments() {
+      const tbody = document.getElementById('adjustmentsTableBody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--txt-dim);">Loading adjustment requests...</td></tr>';
+
+      fetch('/adjustments')
+        .then(r => r.json())
+        .then(data => {
+          tbody.innerHTML = '';
+          if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--txt-dim);">No change requests found.</td></tr>';
+            return;
+          }
+          data.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.className = 'ri';
+            
+            const fileLink = r.file_path ? `<a href="/uploads/${r.file_path}" target="_blank" class="ulink" style="font-weight:600;">View File 📄</a>` : 'No file';
+            const commentsText = r.comments ? `<br><small style="color:var(--txt-dim)">Note: ${r.comments}</small>` : '';
+            const statusChip = `<span class="stag" style="background:${r.status === 'Pending' ? 'rgba(245,158,11,.1)' : r.status === 'Approved' ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.1)'}; color:${r.status === 'Pending' ? '#d97706' : r.status === 'Approved' ? '#10b981' : '#ef4444'}; font-weight:700;">${r.status}</span>${commentsText}`;
+            
+            let actionHtml = '—';
+            if (r.status === 'Pending') {
+              actionHtml = `
+                <div style="display:flex; gap:8px;">
+                  <button class="cta" style="padding:6px 12px; font-size:12px; border-radius:8px; box-shadow:none; background:var(--acc-ind);" onclick="openCoordinatorApprovalModal('${r._id}', '${r.teacher_id}', '${r.teacher_name}', '${r.current_date}', '${r.current_slot}', '${r.current_session}')">
+                    Approve
+                  </button>
+                  <button class="cta" style="padding:6px 12px; font-size:12px; border-radius:8px; box-shadow:none; background:#ef4444;" onclick="openCoordinatorRejectionModal('${r._id}')">
+                    Reject
+                  </button>
+                </div>
+              `;
+            }
+            
+            tr.innerHTML = `
+              <td>
+                <strong>${r.teacher_name}</strong><br>
+                <small style="color:var(--txt-dim); font-family:var(--mono);">${r.teacher_id}</small>
+              </td>
+              <td>
+                <span class="mbadge">Slot ${r.current_slot}</span><br>
+                <small style="color:var(--txt-dim); font-family:var(--mono);">${r.current_date}</small>
+              </td>
+              <td style="max-width: 250px; white-space: normal;">
+                <span style="font-style:italic; font-size:14px; color:var(--txt-main);">"${r.reason || 'No reason provided'}"</span><br>
+                ${fileLink}
+              </td>
+              <td>${statusChip}</td>
+              <td>${actionHtml}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(err => {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#ef4444;">Error loading adjustments: ' + err.message + '</td></tr>';
+        });
+    }
+
+    function openCoordinatorApprovalModal(reqId, tId, tName, date, slot, session) {
+      document.getElementById('coordRequestID').value = reqId;
+      document.getElementById('coordinatorModalDutyDetails').innerHTML = `
+        <strong>Teacher:</strong> ${tName} (${tId})<br>
+        <strong>Current Duty:</strong> ${date} | Slot ${slot} (${session})
+      `;
+
+      document.getElementById('swapPartnerSelect').innerHTML = '<option value="" disabled selected>Loading recommended swaps...</option>';
+      document.getElementById('moveSlotSelect').innerHTML = '<option value="" disabled selected>Loading conflict-free slots...</option>';
+      document.getElementById('swapPreferenceMatchNote').textContent = '';
+      document.getElementById('coordinatorModalError').textContent = '';
+      
+      switchRescheduleTab('swap');
+      document.getElementById('coordinatorApprovalModal').style.display = 'flex';
+
+      fetch(`/adjustments/alternatives?request_id=${reqId}`)
+        .then(r => r.json())
+        .then(d => {
+          currentAlternatives = d;
+          populateRescheduleOptions();
+        })
+        .catch(err => {
+          document.getElementById('coordinatorModalError').textContent = 'Failed to load alternatives: ' + err.message;
+        });
+    }
+
+    function closeCoordinatorApprovalModal() {
+      document.getElementById('coordinatorApprovalModal').style.display = 'none';
+    }
+
+    function switchRescheduleTab(tab) {
+      activeRescheduleTab = tab;
+      const tSwap = document.getElementById('rescheduleTabSwap');
+      const tMove = document.getElementById('rescheduleTabMove');
+      const swapSelect = document.getElementById('swapSelectorContainer');
+      const moveSelect = document.getElementById('moveSelectorContainer');
+
+      if (tab === 'swap') {
+        tSwap.style.background = 'var(--surface)';
+        tSwap.style.color = 'var(--txt-main)';
+        tSwap.style.fontWeight = '600';
+        tSwap.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        
+        tMove.style.background = 'transparent';
+        tMove.style.color = 'var(--txt-dim)';
+        tMove.style.fontWeight = '500';
+        tMove.style.boxShadow = 'none';
+
+        swapSelect.style.display = 'block';
+        moveSelect.style.display = 'none';
+      } else {
+        tMove.style.background = 'var(--surface)';
+        tMove.style.color = 'var(--txt-main)';
+        tMove.style.fontWeight = '600';
+        tMove.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        
+        tSwap.style.background = 'transparent';
+        tSwap.style.color = 'var(--txt-dim)';
+        tSwap.style.fontWeight = '500';
+        tSwap.style.boxShadow = 'none';
+
+        swapSelect.style.display = 'none';
+        moveSelect.style.display = 'block';
+      }
+    }
+
+    function populateRescheduleOptions() {
+      if (!currentAlternatives) return;
+
+      const swapSelect = document.getElementById('swapPartnerSelect');
+      swapSelect.innerHTML = '<option value="" disabled selected>Select a swap partner</option>';
+      if (currentAlternatives.swap_options.length === 0) {
+        swapSelect.innerHTML = '<option value="" disabled>No compatible swap partners found</option>';
+      } else {
+        currentAlternatives.swap_options.forEach((opt, idx) => {
+          const matchNote = opt.pref_score === 2 ? '★ Both prefer' : opt.pref_score === 1 ? '✦ One prefers' : 'No preference match';
+          const optionText = `${opt.teacher_name} - ${opt.date} (Slot ${opt.slot}) [${matchNote}]`;
+          const optionEl = document.createElement('option');
+          optionEl.value = idx;
+          optionEl.textContent = optionText;
+          swapSelect.appendChild(optionEl);
+        });
+      }
+
+      const moveSelect = document.getElementById('moveSlotSelect');
+      moveSelect.innerHTML = '<option value="" disabled selected>Select an empty slot</option>';
+      if (currentAlternatives.free_slots.length === 0) {
+        moveSelect.innerHTML = '<option value="" disabled>No empty slots found</option>';
+      } else {
+        currentAlternatives.free_slots.forEach((opt, idx) => {
+          const optionText = `${opt.date} (Slot ${opt.slot})`;
+          const optionEl = document.createElement('option');
+          optionEl.value = idx;
+          optionEl.textContent = optionText;
+          moveSelect.appendChild(optionEl);
+        });
+      }
+    }
+
+    function handleSwapPartnerSelectChange(select) {
+      if (!currentAlternatives || select.value === "") return;
+      const opt = currentAlternatives.swap_options[parseInt(select.value, 10)];
+      const note = document.getElementById('swapPreferenceMatchNote');
+      
+      let text = '';
+      if (opt.requester_preferred && opt.partner_preferred) {
+        text = '✓ Perfect Match! Requester prefers Target Slot, and Partner prefers Current Slot.';
+      } else if (opt.requester_preferred) {
+        text = '✦ Partial Match: Requester prefers Target Slot.';
+      } else if (opt.partner_preferred) {
+        text = '✦ Partial Match: Swap partner prefers Current Slot.';
+      } else {
+        text = 'No preference match, but slots are free of clashes.';
+      }
+      note.textContent = text;
+    }
+
+    function submitCoordinatorApproval(e) {
+      e.preventDefault();
+      const err = document.getElementById('coordinatorModalError');
+      err.textContent = '';
+
+      const reqId = document.getElementById('coordRequestID').value;
+      const type = activeRescheduleTab;
+      
+      let payload = { request_id: reqId, type: type };
+      
+      if (type === 'swap') {
+        const select = document.getElementById('swapPartnerSelect');
+        if (select.value === "") {
+          err.textContent = 'Please select a swap partner.';
+          return;
+        }
+        const opt = currentAlternatives.swap_options[parseInt(select.value, 10)];
+        payload.swap_teacher_id = opt.teacher_id;
+        payload.new_date = opt.date;
+        payload.new_slot = opt.slot;
+      } else {
+        const select = document.getElementById('moveSlotSelect');
+        if (select.value === "") {
+          err.textContent = 'Please select an empty slot.';
+          return;
+        }
+        const opt = currentAlternatives.free_slots[parseInt(select.value, 10)];
+        payload.new_date = opt.date;
+        payload.new_slot = opt.slot;
+      }
+
+      const btn = e.target.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Processing...</span>';
+
+      fetch('/approve_adjustment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Rescheduling failed');
+        return d;
+      })
+      .then(d => {
+        alert(d.message);
+        closeCoordinatorApprovalModal();
+        loadAdjustments();
+      })
+      .catch(error => {
+        err.textContent = error.message;
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      });
+    }
+
+    function openCoordinatorRejectionModal(reqId) {
+      document.getElementById('coordRejectRequestID').value = reqId;
+      document.getElementById('coordRejectComments').value = '';
+      document.getElementById('coordinatorRejectModalError').textContent = '';
+      document.getElementById('coordinatorRejectionModal').style.display = 'flex';
+    }
+
+    function closeCoordinatorRejectionModal() {
+      document.getElementById('coordinatorRejectionModal').style.display = 'none';
+    }
+
+    function submitCoordinatorRejection(e) {
+      e.preventDefault();
+      const err = document.getElementById('coordinatorRejectModalError');
+      err.textContent = '';
+
+      const reqId = document.getElementById('coordRejectRequestID').value;
+      const comments = document.getElementById('coordRejectComments').value.trim();
+
+      const btn = e.target.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Rejecting...</span>';
+
+      fetch('/reject_adjustment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: reqId, comments: comments })
+      })
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Rejection failed');
+        return d;
+      })
+      .then(d => {
+        alert(d.message);
+        closeCoordinatorRejectionModal();
+        loadAdjustments();
+      })
+      .catch(error => {
+        err.textContent = error.message;
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const modalUzone = document.getElementById('modalUzone');
+      if (modalUzone) {
+        modalUzone.addEventListener('dragover', e => {
+          e.preventDefault();
+          modalUzone.style.borderColor = 'var(--acc-ind)';
+          modalUzone.style.background = 'rgba(99, 102, 241, 0.02)';
+        });
+        modalUzone.addEventListener('dragleave', () => {
+          modalUzone.style.borderColor = '#e2e8f0';
+          modalUzone.style.background = '#fbfcfd';
+        });
+        modalUzone.addEventListener('drop', e => {
+          e.preventDefault();
+          modalUzone.style.borderColor = '#e2e8f0';
+          modalUzone.style.background = '#fbfcfd';
+          const fileInput = document.getElementById('modalFile');
+          const f = e.dataTransfer.files[0];
+          if (f) {
+            const container = new DataTransfer();
+            container.items.add(f);
+            fileInput.files = container.files;
+            handleModalFileSelect(fileInput);
+          }
+        });
+      }
+    });
   </script>
+
+  <!-- ADJUSTMENT REQUEST MODAL -->
+  <div id="adjustmentModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card" style="max-width:500px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0;">
+      <button onclick="closeAdjustmentModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+      <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
+        <h3 style="font-family:var(--inter); font-size:24px; color:#1e293b; margin-bottom:8px;">Request Duty Change</h3>
+        <p style="color:var(--txt-dim); font-size:14px;">Submit an application for duty date/slot change in case of emergency.</p>
+      </div>
+      <div id="modalDutyDetails" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
+        <!-- Filled dynamically -->
+      </div>
+      <form id="adjustmentForm" onsubmit="submitAdjustmentRequest(event)">
+        <input type="hidden" id="adjSlot" name="current_slot">
+        <input type="hidden" id="adjDate" name="current_date">
+        <input type="hidden" id="adjRole" name="current_role">
+        
+        <div class="input-group">
+          <label for="adjReason" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Reason for Request</label>
+          <textarea id="adjReason" placeholder="Explain the emergency or reason for date change request..." required style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-family:var(--inter); font-size:14px; background:#f8fafc; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--acc-ind)'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+        </div>
+        
+        <div class="input-group">
+          <label style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Upload Application File (PDF, Images, DOCX)</label>
+          <div id="modalUzone" style="border:2px dashed #e2e8f0; border-radius:16px; padding:24px 16px; text-align:center; cursor:pointer; background:#fbfcfd; transition:border-color 0.2s;" onclick="document.getElementById('modalFile').click()">
+            <div style="font-size:24px; margin-bottom:8px;">📁</div>
+            <p style="font-size:13px; font-weight:600; color:var(--txt-main);" id="modalFileStatus">Drag & drop or click to browse</p>
+            <p style="font-size:11px; color:var(--txt-dim); margin-top:4px;">Max size 5MB. PDF, PNG, JPG, JPEG, DOCX</p>
+            <input type="file" id="modalFile" required accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx" style="display:none;" onchange="handleModalFileSelect(this)">
+          </div>
+        </div>
+        
+        <span id="modalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+        
+        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
+          <span>Submit Request</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- COORDINATOR APPROVAL MODAL -->
+  <div id="coordinatorApprovalModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card" style="max-width:550px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
+      <button onclick="closeCoordinatorApprovalModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+      <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
+        <h3 style="font-family:var(--inter); font-size:24px; color:#1e293b; margin-bottom:8px;">Approve Duty Change</h3>
+        <p style="color:var(--txt-dim); font-size:14px;">Select how you want to reschedule this supervisor's duty.</p>
+      </div>
+      <div id="coordinatorModalDutyDetails" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
+        <!-- Filled dynamically -->
+      </div>
+      
+      <!-- RESCHEDULE TYPE TABS -->
+      <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <button id="rescheduleTabSwap" class="auth-tab" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: var(--surface); font-weight: 600; color: var(--txt-main); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="switchRescheduleTab('swap')">
+          Swap with Peer
+        </button>
+        <button id="rescheduleTabMove" class="auth-tab" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: transparent; font-weight: 500; color: var(--txt-dim); transition: all 0.2s;" onclick="switchRescheduleTab('move')">
+          Move to Free Slot
+        </button>
+      </div>
+      
+      <form id="coordinatorApprovalForm" onsubmit="submitCoordinatorApproval(event)">
+        <input type="hidden" id="coordRequestID">
+        
+        <!-- SWAP SELECTOR -->
+        <div id="swapSelectorContainer" class="input-group">
+          <label for="swapPartnerSelect" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Recommended Swaps (Ranked by Preference Match)</label>
+          <select id="swapPartnerSelect" style="width:100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px;" onchange="handleSwapPartnerSelectChange(this)">
+            <option value="" disabled selected>Loading recommended swaps...</option>
+          </select>
+          <span id="swapPreferenceMatchNote" style="font-size:.75rem; color:#10b981; margin-top:.5rem; display:block; font-weight:600;"></span>
+        </div>
+        
+        <!-- MOVE SELECTOR -->
+        <div id="moveSelectorContainer" class="input-group" style="display:none;">
+          <label for="moveSlotSelect" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Available Conflict-Free Slots</label>
+          <select id="moveSlotSelect" style="width:100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px;">
+            <option value="" disabled selected>Loading conflict-free slots...</option>
+          </select>
+        </div>
+        
+        <span id="coordinatorModalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+        
+        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
+          <span>Confirm & Reschedule</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- COORDINATOR REJECTION MODAL -->
+  <div id="coordinatorRejectionModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card" style="max-width:450px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
+      <button onclick="closeCoordinatorRejectionModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+      <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
+        <h3 style="font-family:var(--inter); font-size:24px; color:#ef4444; margin-bottom:8px;">Reject Request</h3>
+        <p style="color:var(--txt-dim); font-size:14px;">Enter the reason why this change request is being rejected.</p>
+      </div>
+      <form id="coordinatorRejectionForm" onsubmit="submitCoordinatorRejection(event)">
+        <input type="hidden" id="coordRejectRequestID">
+        
+        <div class="input-group">
+          <label for="coordRejectComments" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Rejection Comments / Feedback</label>
+          <textarea id="coordRejectComments" placeholder="Provide feedback to the supervisor..." required style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-family:var(--inter); font-size:14px; background:#f8fafc; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+        </div>
+        
+        <span id="coordinatorRejectModalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+        
+        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, #ef4444, #b91c1c); color:#fff; border:none; cursor:pointer; box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);">
+          <span>Confirm Rejection</span>
+        </button>
+      </form>
+    </div>
+  </div>
 </body>
 
 </html>
