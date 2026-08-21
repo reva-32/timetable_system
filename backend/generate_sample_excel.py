@@ -1,6 +1,11 @@
 """
-generate_sample_excel.py — Creates a comprehensive test workbook (sample_exam_data.xlsx)
-with 10 teachers (001 to 010), multi-department courses, rooms, and student enrollments.
+generate_sample_excel.py — Creates a complete test workbook (sample_exam_data.xlsx)
+matching the user's exact dataset structure:
+- Courses (20 IT subjects, numeric IDs 1 to 20, years 1 to 4)
+- Teachers (30 faculty members T001 to T030 with exact roles)
+- Slots (Slots 1 to 10 with dates and morning/afternoon sessions)
+- Rooms (Capacity-aware exam rooms)
+- Student_Courses (Student enrollments across IT subjects)
 
 Usage:
     cd backend
@@ -13,96 +18,136 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_FILE = os.path.join(BASE_DIR, "sample_exam_data.xlsx")
 
-# 1. Teachers Sheet (referencing 001 to 010)
+# 1. Teachers Sheet (T001 to T030 with exact roles)
 teachers_data = [
-    {"teacher_id": "001", "name": "Prof. Aarav Sharma", "role": "Junior", "department": "IT"},
-    {"teacher_id": "002", "name": "Dr. Bhavna Patil", "role": "Junior", "department": "IT"},
-    {"teacher_id": "003", "name": "Prof. Chetan Kulkarni", "role": "Junior", "department": "CE"},
-    {"teacher_id": "004", "name": "Dr. Deepa Deshmukh", "role": "Junior", "department": "CE"},
-    {"teacher_id": "005", "name": "Prof. Eshan Joshi", "role": "Junior", "department": "ENTC"},
-    {"teacher_id": "006", "name": "Dr. Fatima Shaikh", "role": "Junior", "department": "AIDS"},
-    {"teacher_id": "007", "name": "Prof. Girish Mehta", "role": "Senior", "department": "IT"},
-    {"teacher_id": "008", "name": "Dr. Hemlata Rao", "role": "Senior", "department": "CE"},
-    {"teacher_id": "009", "name": "Prof. Ishaan Verma", "role": "Squad", "department": "ENTC"},
-    {"teacher_id": "010", "name": "Dr. Jayant Nambiar", "role": "Squad", "department": "AIDS"},
+    {"teacher_id": "T001", "name": "Prof. IT_1", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T002", "name": "Prof. IT_2", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T003", "name": "Prof. IT_3", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T004", "name": "Prof. IT_4", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T005", "name": "Prof. IT_5", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T006", "name": "Prof. IT_6", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T007", "name": "Prof. IT_7", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T008", "name": "Prof. IT_8", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T009", "name": "Prof. IT_9", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T010", "name": "Prof. IT_10", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T011", "name": "Prof. IT_11", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T012", "name": "Prof. IT_12", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T013", "name": "Prof. IT_13", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T014", "name": "Prof. IT_14", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T015", "name": "Prof. IT_15", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T016", "name": "Prof. IT_16", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T017", "name": "Prof. IT_17", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T018", "name": "Prof. IT_18", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T019", "name": "Prof. IT_19", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T020", "name": "Prof. IT_20", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T021", "name": "Prof. IT_21", "role": "Senior", "department": "IT"},
+    {"teacher_id": "T022", "name": "Prof. IT_22", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T023", "name": "Prof. IT_23", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T024", "name": "Prof. IT_24", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T025", "name": "Prof. IT_25", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T026", "name": "Prof. IT_26", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T027", "name": "Prof. IT_27", "role": "Junior", "department": "IT"},
+    {"teacher_id": "T028", "name": "Prof. IT_28", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T029", "name": "Prof. IT_29", "role": "Squad", "department": "IT"},
+    {"teacher_id": "T030", "name": "Prof. IT_30", "role": "Junior", "department": "IT"},
 ]
 
-# 2. Courses Sheet
+# 2. Courses Sheet (Matching Image 1)
 courses_data = [
-    {"course_id": "IT301", "course_name": "Database Management Systems", "year": "3", "department": "IT", "students_count": 60, "exam_date": "10-Dec-2026", "session": "Morning"},
-    {"course_id": "IT302", "course_name": "Operating Systems", "year": "3", "department": "IT", "students_count": 60, "exam_date": "12-Dec-2026", "session": "Morning"},
-    {"course_id": "IT303", "course_name": "Computer Networks", "year": "3", "department": "IT", "students_count": 60, "exam_date": "14-Dec-2026", "session": "Morning"},
-    {"course_id": "CE301", "course_name": "Theory of Computation", "year": "3", "department": "CE", "students_count": 60, "exam_date": "10-Dec-2026", "session": "Afternoon"},
-    {"course_id": "CE302", "course_name": "Software Engineering", "year": "3", "department": "CE", "students_count": 60, "exam_date": "12-Dec-2026", "session": "Afternoon"},
-    {"course_id": "ENTC301", "course_name": "Digital Signal Processing", "year": "3", "department": "ENTC", "students_count": 50, "exam_date": "10-Dec-2026", "session": "Morning"},
-    {"course_id": "AIDS301", "course_name": "Artificial Intelligence", "year": "3", "department": "AIDS", "students_count": 55, "exam_date": "11-Dec-2026", "session": "Morning"},
-    {"course_id": "AIDS302", "course_name": "Machine Learning", "year": "3", "department": "AIDS", "students_count": 55, "exam_date": "13-Dec-2026", "session": "Afternoon"},
+    {"course_id": 1, "course_name": "IT_Subject_1", "year": 1, "students_count": 31, "department": "IT"},
+    {"course_id": 2, "course_name": "IT_Subject_2", "year": 2, "students_count": 30, "department": "IT"},
+    {"course_id": 3, "course_name": "IT_Subject_3", "year": 2, "students_count": 32, "department": "IT"},
+    {"course_id": 4, "course_name": "IT_Subject_4", "year": 2, "students_count": 28, "department": "IT"},
+    {"course_id": 5, "course_name": "IT_Subject_5", "year": 4, "students_count": 29, "department": "IT"},
+    {"course_id": 6, "course_name": "IT_Subject_6", "year": 3, "students_count": 33, "department": "IT"},
+    {"course_id": 7, "course_name": "IT_Subject_7", "year": 2, "students_count": 24, "department": "IT"},
+    {"course_id": 8, "course_name": "IT_Subject_8", "year": 4, "students_count": 30, "department": "IT"},
+    {"course_id": 9, "course_name": "IT_Subject_9", "year": 4, "students_count": 24, "department": "IT"},
+    {"course_id": 10, "course_name": "IT_Subject_10", "year": 4, "students_count": 22, "department": "IT"},
+    {"course_id": 11, "course_name": "IT_Subject_11", "year": 4, "students_count": 21, "department": "IT"},
+    {"course_id": 12, "course_name": "IT_Subject_12", "year": 1, "students_count": 31, "department": "IT"},
+    {"course_id": 13, "course_name": "IT_Subject_13", "year": 1, "students_count": 40, "department": "IT"},
+    {"course_id": 14, "course_name": "IT_Subject_14", "year": 4, "students_count": 32, "department": "IT"},
+    {"course_id": 15, "course_name": "IT_Subject_15", "year": 1, "students_count": 30, "department": "IT"},
+    {"course_id": 16, "course_name": "IT_Subject_16", "year": 2, "students_count": 32, "department": "IT"},
+    {"course_id": 17, "course_name": "IT_Subject_17", "year": 4, "students_count": 42, "department": "IT"},
+    {"course_id": 18, "course_name": "IT_Subject_18", "year": 4, "students_count": 25, "department": "IT"},
+    {"course_id": 19, "course_name": "IT_Subject_19", "year": 1, "students_count": 30, "department": "IT"},
+    {"course_id": 20, "course_name": "IT_Subject_20", "year": 4, "students_count": 34, "department": "IT"},
 ]
 
-# 3. Rooms Sheet
+# 3. Slots Sheet (Distinct exam dates & sessions)
+slots_data = [
+    {"slot_id": 1, "date": "2026-11-02", "session": "Morning"},
+    {"slot_id": 2, "date": "2026-11-02", "session": "Afternoon"},
+    {"slot_id": 3, "date": "2026-11-03", "session": "Morning"},
+    {"slot_id": 4, "date": "2026-11-03", "session": "Afternoon"},
+    {"slot_id": 5, "date": "2026-11-04", "session": "Morning"},
+    {"slot_id": 6, "date": "2026-11-04", "session": "Afternoon"},
+    {"slot_id": 7, "date": "2026-11-05", "session": "Morning"},
+    {"slot_id": 8, "date": "2026-11-05", "session": "Afternoon"},
+    {"slot_id": 9, "date": "2026-11-06", "session": "Morning"},
+    {"slot_id": 10, "date": "2026-11-06", "session": "Afternoon"},
+]
+
+# 4. Rooms Sheet
 rooms_data = [
-    {"room_id": "A101", "capacity": 60, "department": "IT"},
-    {"room_id": "A102", "capacity": 60, "department": "IT"},
-    {"room_id": "B201", "capacity": 70, "department": "CE"},
-    {"room_id": "B202", "capacity": 60, "department": "CE"},
-    {"room_id": "C301", "capacity": 55, "department": "ENTC"},
-    {"room_id": "D401", "capacity": 60, "department": "AIDS"},
-    {"room_id": "LH-01", "capacity": 120, "department": "General"},
-    {"room_id": "LH-02", "capacity": 100, "department": "General"},
+    {"room_id": "IT-101", "capacity": 45, "department": "IT"},
+    {"room_id": "IT-102", "capacity": 45, "department": "IT"},
+    {"room_id": "IT-201", "capacity": 50, "department": "IT"},
+    {"room_id": "IT-202", "capacity": 50, "department": "IT"},
+    {"room_id": "IT-301", "capacity": 40, "department": "IT"},
+    {"room_id": "IT-302", "capacity": 40, "department": "IT"},
+    {"room_id": "Audi-1", "capacity": 100, "department": "General"},
+    {"room_id": "Audi-2", "capacity": 100, "department": "General"},
 ]
 
-# 4. Student Enrollments Sheet
-# Generate 60 IT students (IT_S1 to IT_S60) enrolled in IT301, IT302, IT303
-# 60 CE students (CE_S1 to CE_S60) enrolled in CE301, CE302
-# 50 ENTC students (ENTC_S1 to ENTC_S50) enrolled in ENTC301
-# 55 AIDS students (AIDS_S1 to AIDS_S55) enrolled in AIDS301, AIDS302
+# 5. Student Courses Sheet
+# Generating enrollments for students according to their year and courses
 students_data = []
 
-for i in range(1, 61):
-    sid = f"IT_S{i:02d}"
-    students_data.append({"student_id": sid, "course_id": "IT301"})
-    students_data.append({"student_id": sid, "course_id": "IT302"})
-    students_data.append({"student_id": sid, "course_id": "IT303"})
+# Year 1 courses: 1, 12, 13, 15, 19
+for s in range(1, 41):
+    sid = f"STU_Y1_{s:02d}"
+    for c in [1, 12, 13, 15, 19]:
+        students_data.append({"student_id": sid, "course_id": c})
 
-for i in range(1, 61):
-    sid = f"CE_S{i:02d}"
-    students_data.append({"student_id": sid, "course_id": "CE301"})
-    students_data.append({"student_id": sid, "course_id": "CE302"})
+# Year 2 courses: 2, 3, 4, 7, 16
+for s in range(1, 33):
+    sid = f"STU_Y2_{s:02d}"
+    for c in [2, 3, 4, 7, 16]:
+        students_data.append({"student_id": sid, "course_id": c})
 
-for i in range(1, 51):
-    sid = f"ENTC_S{i:02d}"
-    students_data.append({"student_id": sid, "course_id": "ENTC301"})
+# Year 3 course: 6
+for s in range(1, 34):
+    sid = f"STU_Y3_{s:02d}"
+    students_data.append({"student_id": sid, "course_id": 6})
 
-for i in range(1, 56):
-    sid = f"AIDS_S{i:02d}"
-    students_data.append({"student_id": sid, "course_id": "AIDS301"})
-    students_data.append({"student_id": sid, "course_id": "AIDS302"})
-
-# 5. Slots Sheet
-slots_data = [
-    {"slot_id": 1, "date": "10-Dec-2026", "session": "10:00 – 12:30"},
-    {"slot_id": 2, "date": "10-Dec-2026", "session": "14:00 – 16:30"},
-    {"slot_id": 3, "date": "11-Dec-2026", "session": "10:00 – 12:30"},
-    {"slot_id": 4, "date": "12-Dec-2026", "session": "10:00 – 12:30"},
-    {"slot_id": 5, "date": "12-Dec-2026", "session": "14:00 – 16:30"},
-    {"slot_id": 6, "date": "13-Dec-2026", "session": "14:00 – 16:30"},
-    {"slot_id": 7, "date": "14-Dec-2026", "session": "10:00 – 12:30"},
-]
+# Year 4 courses: 5, 8, 9, 10, 11, 14, 17, 18, 20
+for s in range(1, 43):
+    sid = f"STU_Y4_{s:02d}"
+    for c in [5, 8, 9, 10, 11, 14, 17, 18, 20]:
+        students_data.append({"student_id": sid, "course_id": c})
 
 def generate():
-    with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
-        pd.DataFrame(students_data).to_excel(writer, sheet_name="Student_Courses", index=False)
-        pd.DataFrame(courses_data).to_excel(writer, sheet_name="Courses", index=False)
-        pd.DataFrame(rooms_data).to_excel(writer, sheet_name="Rooms", index=False)
-        pd.DataFrame(teachers_data).to_excel(writer, sheet_name="Teachers", index=False)
-        pd.DataFrame(slots_data).to_excel(writer, sheet_name="Slots", index=False)
-
-    print(f"Generated test dataset: {OUTPUT_FILE}")
-    print(f" - Students enrollments: {len(students_data)}")
-    print(f" - Courses: {len(courses_data)}")
-    print(f" - Rooms: {len(rooms_data)}")
-    print(f" - Teachers: {len(teachers_data)} (001 to 010)")
-    print(f" - Slots: {len(slots_data)}")
+    target = OUTPUT_FILE
+    try:
+        with pd.ExcelWriter(target, engine="openpyxl") as writer:
+            pd.DataFrame(students_data).to_excel(writer, sheet_name="Student_Courses", index=False)
+            pd.DataFrame(courses_data).to_excel(writer, sheet_name="Courses", index=False)
+            pd.DataFrame(rooms_data).to_excel(writer, sheet_name="Rooms", index=False)
+            pd.DataFrame(teachers_data).to_excel(writer, sheet_name="Teachers", index=False)
+            pd.DataFrame(slots_data).to_excel(writer, sheet_name="Slots", index=False)
+        print(f"Generated sample Excel dataset matching user's structure: {target}")
+    except PermissionError:
+        target = os.path.join(BASE_DIR, "sample_exam_data_v2.xlsx")
+        with pd.ExcelWriter(target, engine="openpyxl") as writer:
+            pd.DataFrame(students_data).to_excel(writer, sheet_name="Student_Courses", index=False)
+            pd.DataFrame(courses_data).to_excel(writer, sheet_name="Courses", index=False)
+            pd.DataFrame(rooms_data).to_excel(writer, sheet_name="Rooms", index=False)
+            pd.DataFrame(teachers_data).to_excel(writer, sheet_name="Teachers", index=False)
+            pd.DataFrame(slots_data).to_excel(writer, sheet_name="Slots", index=False)
+        print(f"File locked by Excel. Generated copy at: {target}")
 
 if __name__ == "__main__":
     generate()

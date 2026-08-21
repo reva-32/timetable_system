@@ -41,7 +41,7 @@ def format_date_to_standard(raw_date):
     # Try parsing via pandas to_datetime
     try:
         import pandas as pd
-        parsed = pd.to_datetime(raw_str, dayfirst=True, errors='coerce')
+        parsed = pd.to_datetime(raw_str, errors='coerce')
         if not pd.isna(parsed):
             return parsed.strftime("%d-%b-%Y")
     except Exception:
@@ -190,7 +190,8 @@ def init_faculty(teachers_data):
             }
             if "duty_counts" not in existing:
                 flat_count = existing.get("duty_count", 0)
-                role_key = update_fields["role"].lower() if update_fields["role"].lower() in ["junior", "senior", "squad"] else "junior"
+                role_val = str(update_fields.get("role") or "junior").strip().lower()
+                role_key = role_val if role_val in ["junior", "senior", "squad"] else "junior"
                 update_fields["duty_counts"] = {
                     "squad": flat_count if role_key == "squad" else 0,
                     "junior": flat_count if role_key == "junior" else 0,
@@ -218,7 +219,8 @@ def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False, cou
     """
     database    = get_db()
     date = format_date_to_standard(date)
-    role_key = role.lower() if role.lower() in ["junior", "senior", "squad"] else "junior"
+    role_val = str(role or "junior").strip().lower()
+    role_key = role_val if role_val in ["junior", "senior", "squad"] else "junior"
     
     # Sensible defaults for room based on role if not provided
     if not room_assigned:
@@ -355,6 +357,131 @@ def ensure_coordinator():
         "password_changed": True,
     })
     return True
+
+
+def get_all_teachers_from_db():
+    """
+    Fetch all active faculty records from MongoDB formatted for the scheduling pipeline.
+    """
+    database = get_db()
+    teachers = {}
+    for doc in database["teachers"].find({"is_admin": {"$ne": True}}):
+        t_id = doc.get("teacher_id") or doc.get("email", "").split("@")[0].upper()
+        raw_prefs = doc.get("preferred_slots") or []
+        preferred_slots = set()
+        if isinstance(raw_prefs, (list, set)):
+            for p in raw_prefs:
+                try:
+                    preferred_slots.add(int(p))
+                except (ValueError, TypeError):
+                    preferred_slots.add(str(p))
+        elif isinstance(raw_prefs, str):
+            for p in raw_prefs.split(","):
+                p_str = p.strip()
+                if p_str:
+                    try:
+                        preferred_slots.add(int(p_str))
+                    except ValueError:
+                        preferred_slots.add(p_str)
+
+        teachers[t_id] = {
+            "id": t_id,
+            "name": doc.get("name", f"Prof. {t_id}"),
+            "role": doc.get("role", "Junior"),
+            "department": doc.get("department", "General"),
+            "preferred_slots": preferred_slots
+        }
+    return teachers
+
+
+def update_confirmed_timetable_swap(action_type, requester_id, current_date, current_slot, new_date, new_slot, swap_teacher_id=None, target_course="ALL", target_room="TBD", target_session="TBD"):
+    """
+    Atomically update the published/confirmed timetable document in MongoDB
+    so that duty swaps/moves immediately reflect in both Coordinator view and downloads.
+    """
+    database = get_db()
+    timetable_doc = database["timetables"].find_one(sort=[("_id", -1)])
+    if not timetable_doc:
+        return False
+
+    teacher_duties = timetable_doc.get("teacher_duties", [])
+    req_doc = database["teachers"].find_one({"$or": [{"teacher_id": requester_id}, {"email": requester_id}]})
+    req_id_str = req_doc.get("teacher_id", requester_id) if req_doc else requester_id
+    req_name = req_doc.get("name", "Unknown") if req_doc else "Unknown"
+
+    cur_date_norm = format_date_to_standard(current_date)
+    new_date_norm = format_date_to_standard(new_date)
+    cur_slot_str = str(current_slot)
+    new_slot_str = str(new_slot)
+
+    updated = False
+
+    if action_type == "swap" and swap_teacher_id:
+        partner_doc = database["teachers"].find_one({"$or": [{"teacher_id": swap_teacher_id}, {"email": swap_teacher_id}]})
+        partner_id_str = partner_doc.get("teacher_id", swap_teacher_id) if partner_doc else swap_teacher_id
+        partner_name = partner_doc.get("name", "Unknown") if partner_doc else "Unknown"
+
+        idx1 = None
+        idx2 = None
+
+        for idx, d in enumerate(teacher_duties):
+            d_id = str(d.get("teacher_id"))
+            d_date = format_date_to_standard(d.get("date"))
+            d_slot = str(d.get("slot"))
+
+            if (d_id == req_id_str or d_id == requester_id) and d_date == cur_date_norm and d_slot == cur_slot_str:
+                if idx1 is None:
+                    idx1 = idx
+
+            if (d_id == partner_id_str or d_id == swap_teacher_id) and d_date == new_date_norm and d_slot == new_slot_str:
+                if idx2 is None:
+                    idx2 = idx
+
+        if idx1 is not None and idx2 is not None:
+            # Swap faculty details in the active duties list
+            teacher_duties[idx1]["teacher_id"] = partner_id_str
+            teacher_duties[idx1]["teacher_name"] = partner_name
+            teacher_duties[idx1]["last_role"] = partner_doc.get("last_role", "N/A") if partner_doc else "N/A"
+
+            teacher_duties[idx2]["teacher_id"] = req_id_str
+            teacher_duties[idx2]["teacher_name"] = req_name
+            teacher_duties[idx2]["last_role"] = req_doc.get("last_role", "N/A") if req_doc else "N/A"
+            updated = True
+        elif idx1 is not None:
+            # If partner's slot wasn't found in duties, update requester's slot with partner
+            teacher_duties[idx1]["teacher_id"] = partner_id_str
+            teacher_duties[idx1]["teacher_name"] = partner_name
+            updated = True
+
+    elif action_type == "move":
+        for idx, d in enumerate(teacher_duties):
+            d_id = str(d.get("teacher_id"))
+            d_date = format_date_to_standard(d.get("date"))
+            d_slot = str(d.get("slot"))
+
+            if (d_id == req_id_str or d_id == requester_id) and d_date == cur_date_norm and d_slot == cur_slot_str:
+                teacher_duties[idx]["date"] = new_date_norm
+                teacher_duties[idx]["slot"] = int(new_slot) if str(new_slot).isdigit() else new_slot
+                if target_session and target_session != "TBD":
+                    teacher_duties[idx]["session"] = target_session
+                if target_course and target_course != "ALL":
+                    teacher_duties[idx]["course_id"] = target_course
+                if target_room and target_room != "TBD":
+                    teacher_duties[idx]["room_assigned"] = target_room
+                updated = True
+                break
+
+    if updated:
+        database["timetables"].update_one(
+            {"_id": timetable_doc["_id"]},
+            {"$set": {
+                "teacher_duties": teacher_duties,
+                "last_modified_at": datetime.utcnow().isoformat() + "Z"
+            }}
+        )
+
+    return updated
+
 
 
 if __name__ == "__main__":

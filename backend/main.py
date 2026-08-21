@@ -130,10 +130,12 @@ def adjust_exam_dates(final_data, student_courses, slot_meta):
 
 
 # ================================================
-# DATA LOADING
+# DATA LOADING HELPERS
 # ================================================
 
 def safe_str(val, default="N/A"):
+    if val is None:
+        return default
     if pd.isna(val) if not isinstance(val, str) else False:
         return default
     s = str(val).strip()
@@ -145,6 +147,8 @@ def safe_id(val, default="N/A"):
     Safely convert IDs to clean strings while preserving leading zeros (e.g., '001').
     Strips trailing '.0' from float conversions.
     """
+    if val is None:
+        return default
     if pd.isna(val) if not isinstance(val, str) else False:
         return default
     s = str(val).strip()
@@ -155,19 +159,60 @@ def safe_id(val, default="N/A"):
     return s
 
 
+def find_sheet(excel_file, possible_names):
+    """Find a sheet name ignoring case and underscores/spaces."""
+    try:
+        xl = pd.ExcelFile(excel_file)
+        names = xl.sheet_names
+        # Exact match first
+        for target in possible_names:
+            for actual in names:
+                if actual.strip().lower() == target.strip().lower():
+                    return actual
+        # Normalized match
+        for target in possible_names:
+            norm_target = target.lower().replace("_", "").replace(" ", "")
+            for actual in names:
+                norm_actual = actual.lower().replace("_", "").replace(" ", "")
+                if norm_actual == norm_target:
+                    return actual
+    except Exception:
+        pass
+    return None
+
+
+def get_col(row, possible_keys, default=None):
+    """Retrieve value from a pandas Series/dict using case-insensitive key lookup."""
+    keys_map = {str(k).strip().lower().replace("_", "").replace(" ", ""): k for k in row.index}
+    for candidate in possible_keys:
+        norm = str(candidate).lower().replace("_", "").replace(" ", "")
+        if norm in keys_map:
+            val = row.get(keys_map[norm])
+            if pd.notna(val):
+                return val
+    return default
+
+
 def load_data(filepath):
     from db import format_date_to_standard
-    df_students = pd.read_excel(filepath, sheet_name="Student_Courses")
-    df_courses  = pd.read_excel(filepath, sheet_name="Courses")
-    try:
-        df_slots = pd.read_excel(filepath, sheet_name="Slots")
-    except Exception:
-        df_slots = None
+    
+    student_sheet = find_sheet(filepath, ["Student_Courses", "StudentCourses", "Students", "Enrollments"])
+    if not student_sheet:
+        raise ValueError("Could not find 'Student_Courses' sheet in uploaded Excel workbook.")
+    df_students = pd.read_excel(filepath, sheet_name=student_sheet)
+
+    course_sheet = find_sheet(filepath, ["Courses", "Course", "Subjects", "Course_Details"])
+    if not course_sheet:
+        raise ValueError("Could not find 'Courses' sheet in uploaded Excel workbook.")
+    df_courses = pd.read_excel(filepath, sheet_name=course_sheet)
+
+    slots_sheet = find_sheet(filepath, ["Slots", "Slot", "Exam_Slots", "ExamSlots"])
+    df_slots = pd.read_excel(filepath, sheet_name=slots_sheet) if slots_sheet else None
 
     student_courses = {}
     for _, row in df_students.iterrows():
-        s_id = safe_id(row["student_id"])
-        c_id = safe_id(row["course_id"])
+        s_id = safe_id(get_col(row, ["student_id", "studentid", "roll_no", "rollno", "id"]))
+        c_id = safe_id(get_col(row, ["course_id", "courseid", "subject_code", "course_code", "course"]))
         if s_id != "N/A" and c_id != "N/A":
             student_courses.setdefault(s_id, []).append(c_id)
 
@@ -177,54 +222,46 @@ def load_data(filepath):
             enrolled_counts[c] = enrolled_counts.get(c, 0) + 1
 
     slot_metadata = {}
-    if df_slots is not None:
-        if "slot_id" not in df_slots.columns:
-            df_slots = df_slots.reset_index(drop=True)
-            df_slots.insert(0, "slot_id", range(1, len(df_slots) + 1))
-
+    if df_slots is not None and not df_slots.empty:
         for i, row in df_slots.iterrows():
+            slot_id_val = get_col(row, ["slot_id", "slotid", "slot"])
             try:
-                slot_id = int(row["slot_id"])
-            except (ValueError, TypeError, KeyError):
-                continue
+                slot_id = int(slot_id_val) if slot_id_val is not None else (i + 1)
+            except (ValueError, TypeError):
+                slot_id = i + 1
 
             idx = slot_id - 1
-            raw_date = row["date"]
+            raw_date = get_col(row, ["date", "exam_date", "examdate"])
             date_str = format_date_to_standard(raw_date)
+            session_str = safe_str(get_col(row, ["session", "slot_time", "time"]), default="Morning")
 
             slot_metadata[idx] = {
                 "display_id": slot_id,
                 "date": date_str,
-                "session": str(row["session"])
+                "session": session_str
             }
 
     course_metadata = {}
     for _, row in df_courses.iterrows():
-        c_id = safe_id(row["course_id"])
-        if c_id == "N/A": continue
+        c_id = safe_id(get_col(row, ["course_id", "courseid", "subject_code", "course_code", "course"]))
+        if c_id == "N/A":
+            continue
+
+        students_count_val = get_col(row, ["students_count", "studentscount", "count", "declared_students", "capacity"])
         try:
-            declared = int(row["students_count"])
+            declared = int(students_count_val) if students_count_val is not None else 0
         except (ValueError, TypeError):
             declared = 0
 
-        # Parse exam date if provided in the Courses sheet (accept 'exam_date' or 'date')
-        raw_date = None
-        if "exam_date" in row.index:
-            raw_date = row.get("exam_date")
-        elif "date" in row.index:
-            raw_date = row.get("date")
-        elif "Date" in row.index:
-            raw_date = row.get("Date")
+        raw_date = get_col(row, ["exam_date", "examdate", "date", "Date"])
         exam_date_str = format_date_to_standard(raw_date) if raw_date is not None else None
-
-        # Optional session column in Courses sheet
-        session = safe_str(row.get("session", "General"), default="General")
+        session = safe_str(get_col(row, ["session", "slot_time", "time"]), default="General")
 
         course_metadata[c_id] = {
-            "course_name"    : safe_str(row.get("course_name", ""), default="Unknown"),
-            "year"           : safe_id(row.get("year", ""), default="N/A"),
+            "course_name"    : safe_str(get_col(row, ["course_name", "coursename", "name", "subject", "title"]), default="Unknown"),
+            "year"           : safe_id(get_col(row, ["year", "Year", "academic_year"]), default="N/A"),
             "students_count" : declared,
-            "department"     : safe_str(row.get("department", ""), default="General"),
+            "department"     : safe_str(get_col(row, ["department", "dept", "branch"]), default="General"),
             "exam_date"      : exam_date_str,
             "session"        : session
         }
@@ -237,15 +274,21 @@ def load_data(filepath):
 # ================================================
 
 def load_room_data(filepath):
-    df_rooms = pd.read_excel(filepath, sheet_name="Rooms")
+    room_sheet = find_sheet(filepath, ["Rooms", "Room", "Classrooms", "Halls"])
+    if not room_sheet:
+        return []
+    df_rooms = pd.read_excel(filepath, sheet_name=room_sheet)
     rooms = []
     for _, row in df_rooms.iterrows():
-        r_id = safe_str(row["room_id"])
+        r_id = safe_str(get_col(row, ["room_id", "roomid", "room", "hall_no", "hall", "name"]))
+        if r_id == "N/A":
+            continue
         try:
-            capacity = int(row["capacity"])
-            dept = safe_str(row.get("department", "General"))
+            capacity = int(get_col(row, ["capacity", "seats", "size", "room_capacity"], default=0))
+            dept = safe_str(get_col(row, ["department", "dept", "branch"]), default="General")
             rooms.append({"room_id": r_id, "capacity": capacity, "department": dept})
-        except: continue
+        except Exception:
+            continue
     rooms.sort(key=lambda x: x["capacity"])
     return rooms
 
@@ -254,17 +297,16 @@ def allocate_rooms(final_data, rooms):
     room_assignments = []
     unallocated = []
     usage_counter = {r["room_id"]: 0 for r in rooms}
-    # Track used rooms per unique (date, slot) combination
     slot_used_rooms = {}
 
-    # Sort by date then slot then descending students so larger groups get first pick
     sorted_data = sorted(final_data, key=lambda x: (x.get("date", ""), x.get("slot", 0), -x.get("enrolled_students", 0)))
 
     for row in sorted_data:
         students = row.get("enrolled_students", 0)
         slot = row.get("slot")
         date = row.get("date")
-        if students == 0: students = row.get("declared_students", 0)
+        if students == 0:
+            students = row.get("declared_students", 0)
         slot_key = (date, slot)
         used_in_slot = slot_used_rooms.setdefault(slot_key, set())
         available = [r for r in rooms if r["room_id"] not in used_in_slot]
@@ -274,7 +316,6 @@ def allocate_rooms(final_data, rooms):
         total_cap = 0
         temp_students = students
 
-        # First try: find the smallest single room that fits all students
         single_fit = [r for r in available if r["capacity"] >= temp_students]
         if single_fit:
             best = min(single_fit, key=lambda r: (r["capacity"], usage_counter[r["room_id"]]))
@@ -283,9 +324,7 @@ def allocate_rooms(final_data, rooms):
             used_in_slot.add(best["room_id"])
             usage_counter[best["room_id"]] += 1
         else:
-            # Fallback: combine rooms (previous behavior)
             while temp_students > 0 and available:
-                # pick largest available (to reduce number of rooms) but prefer least used
                 best_room = max(available, key=lambda r: (r["capacity"], -usage_counter[r["room_id"]]))
                 assigned.append(best_room["room_id"])
                 total_cap += best_room["capacity"]
@@ -301,7 +340,8 @@ def allocate_rooms(final_data, rooms):
             "status": "Allocated" if total_cap >= students else "Partial"
         }
         room_assignments.append(res)
-        if total_cap < students: unallocated.append(res)
+        if total_cap < students:
+            unallocated.append(res)
 
     return room_assignments, unallocated
 
@@ -313,55 +353,82 @@ def allocate_rooms(final_data, rooms):
 def load_teacher_data(filepath, preferences_filepath=None):
     """
     Loads teacher profiles and slot preferences from:
-    1. The 'Teachers' sheet (columns: teacher_id, name, role, department, preferred_slots)
-    2. An optional 'Preferences' sheet in the same workbook
-    3. An optional standalone preferences CSV / Excel file
+    1. The 'Teachers' sheet (if present in workbook)
+    2. Fallback to MongoDB 'teachers' collection if sheet not present
+    3. An optional 'Preferences' sheet or external file
     """
-    df_teachers = pd.read_excel(filepath, sheet_name="Teachers")
     teachers = {}
-    for _, row in df_teachers.iterrows():
-        t_id = safe_id(row["teacher_id"])
+    teacher_sheet = find_sheet(filepath, ["Teachers", "Teacher", "Faculty", "Supervisors"])
+
+    if teacher_sheet:
+        df_teachers = pd.read_excel(filepath, sheet_name=teacher_sheet)
         
-        # Parse preferred_slots if present directly in Teachers sheet
-        raw_prefs = row.get("preferred_slots") or row.get("preferences") or ""
-        preferred_slots = set()
-        if pd.notna(raw_prefs):
-            try:
-                for p in str(raw_prefs).split(","):
-                    p_str = p.strip()
-                    if p_str:
-                        try:
-                            preferred_slots.add(int(p_str))
-                        except ValueError:
-                            preferred_slots.add(p_str)
-            except Exception:
-                pass
+        # Detect if header is missing (e.g. columns are T001, Prof. IT_1, Squad)
+        col0_str = str(df_teachers.columns[0]).strip().upper()
+        if col0_str.startswith("T") and (len(col0_str) <= 6 or col0_str[1:].isdigit()):
+            df_teachers = pd.read_excel(filepath, sheet_name=teacher_sheet, header=None)
+            col_names = ["teacher_id", "name", "role", "department", "preferred_slots"]
+            df_teachers.columns = col_names[:len(df_teachers.columns)]
 
-        teachers[t_id] = {
-            "id": t_id,
-            "name": safe_str(row["name"]),
-            "role": safe_str(row["role"]),
-            "department": safe_str(row.get("department", "General")),
-            "preferred_slots": preferred_slots
-        }
+        for _, row in df_teachers.iterrows():
+            t_id = safe_id(get_col(row, ["teacher_id", "teacherid", "id", "faculty_id", 0]))
+            if t_id == "N/A":
+                continue
 
-    # Check for 'Preferences' sheet in the main Excel workbook
-    try:
-        df_prefs = pd.read_excel(filepath, sheet_name="Preferences")
-        for _, row in df_prefs.iterrows():
-            t_id = safe_id(row.get("teacher_id") or row.get("id"))
-            if t_id in teachers:
-                slot_val = row.get("slot_id") or row.get("slot") or row.get("preferred_slots") or row.get("preferences")
-                if pd.notna(slot_val):
-                    for p in str(slot_val).split(","):
+            raw_prefs = get_col(row, ["preferred_slots", "preferredslots", "preferences", "preference", 4], default="")
+            preferred_slots = set()
+            if pd.notna(raw_prefs):
+                try:
+                    for p in str(raw_prefs).split(","):
                         p_str = p.strip()
                         if p_str:
                             try:
-                                teachers[t_id]["preferred_slots"].add(int(p_str))
+                                preferred_slots.add(int(p_str))
                             except ValueError:
-                                teachers[t_id]["preferred_slots"].add(p_str)
-    except Exception:
-        pass
+                                preferred_slots.add(p_str)
+                except Exception:
+                    pass
+
+            t_name = safe_str(get_col(row, ["name", "teacher_name", "faculty_name", 1]), default=f"Prof. {t_id}")
+            t_role = safe_str(get_col(row, ["role", "designation", 2]), default="Junior")
+            t_dept = safe_str(get_col(row, ["department", "dept", "branch", 3]), default="IT")
+
+            teachers[t_id] = {
+                "id": t_id,
+                "name": t_name,
+                "role": t_role,
+                "department": t_dept,
+                "preferred_slots": preferred_slots
+            }
+
+    # Fallback to MongoDB teachers if no teachers loaded from Excel
+    if not teachers:
+        try:
+            from db import get_all_teachers_from_db
+            teachers = get_all_teachers_from_db()
+            print(f"Loaded {len(teachers)} teachers from MongoDB database.")
+        except Exception as db_err:
+            print(f"Warning: Could not fetch fallback teachers from DB: {db_err}")
+
+    # Check for 'Preferences' sheet in the main Excel workbook
+    pref_sheet = find_sheet(filepath, ["Preferences", "Preference", "Teacher_Preferences"])
+    if pref_sheet:
+        try:
+            df_prefs = pd.read_excel(filepath, sheet_name=pref_sheet)
+            for _, row in df_prefs.iterrows():
+                t_id = safe_id(get_col(row, ["teacher_id", "teacherid", "id"]))
+                if t_id in teachers:
+                    slot_val = get_col(row, ["slot_id", "slot", "preferred_slots", "preferences"])
+                    if pd.notna(slot_val):
+                        for p in str(slot_val).split(","):
+                            p_str = p.strip()
+                            if p_str:
+                                try:
+                                    teachers[t_id]["preferred_slots"].add(int(p_str))
+                                except ValueError:
+                                    teachers[t_id]["preferred_slots"].add(p_str)
+        except Exception:
+            pass
 
     # Check for separate uploaded preferences CSV / Excel file
     if preferences_filepath and os.path.exists(preferences_filepath):
@@ -372,9 +439,9 @@ def load_teacher_data(filepath, preferences_filepath=None):
                 df_pref_ext = pd.read_excel(preferences_filepath)
 
             for _, row in df_pref_ext.iterrows():
-                t_id = safe_id(row.get("teacher_id") or row.get("id"))
+                t_id = safe_id(get_col(row, ["teacher_id", "teacherid", "id"]))
                 if t_id in teachers:
-                    slot_val = row.get("preferred_slots") or row.get("slot_id") or row.get("slot") or row.get("preferences")
+                    slot_val = get_col(row, ["preferred_slots", "slot_id", "slot", "preferences"])
                     if pd.notna(slot_val):
                         for p in str(slot_val).split(","):
                             p_str = p.strip()
@@ -383,11 +450,11 @@ def load_teacher_data(filepath, preferences_filepath=None):
                                     teachers[t_id]["preferred_slots"].add(int(p_str))
                                 except ValueError:
                                     teachers[t_id]["preferred_slots"].add(p_str)
-            print(f"Loaded external preferences from {preferences_filepath} successfully.")
         except Exception as pref_err:
             print(f"Warning: Could not load external preferences file: {pref_err}")
 
     return teachers
+
 
 
 def build_duties(final_data, room_assignments=None):
