@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 import os
 import io
@@ -23,7 +23,8 @@ from db import (
     get_all_faculty_status,
     get_db,
     update_faculty_duty,
-    check_reset_fairness
+    check_reset_fairness,
+    ensure_coordinator
 )
 from flask import send_file
 import pandas as pd
@@ -32,17 +33,84 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from werkzeug.utils import secure_filename
 import uuid
-import os
+from functools import wraps
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 app = Flask(
     __name__,
     static_folder=os.path.join("..", "frontend"),
 )
+
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    raise RuntimeError("SECRET_KEY is missing. Create backend/.env before starting Flask.")
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")) * 1024 * 1024
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
 CORS(app)
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+UPLOAD_FOLDER = app.config["UPLOAD_FOLDER"]
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+PUBLIC_PATHS = {"/", "/index.css", "/login", "/signup", "/session", "/logout"}
+
+COORDINATOR_PATHS = {
+    "/generate",
+    "/export_excel",
+    "/confirm",
+    "/clear_confirmed_timetable",
+    "/adjustments",
+    "/adjustments/alternatives",
+    "/approve_adjustment",
+    "/reject_adjustment",
+}
+
+TEACHER_PATHS = {"/request_adjustment"}
+
+
+@app.before_request
+def require_authentication():
+    # Bootstrap the coordinator account once, using backend/.env.
+    if not app.config.get("COORDINATOR_BOOTSTRAPPED"):
+        try:
+            ensure_coordinator()
+            app.config["COORDINATOR_BOOTSTRAPPED"] = True
+        except Exception as exc:
+            app.logger.warning("Coordinator bootstrap skipped: %s", exc)
+
+    path = request.path
+
+    if path in PUBLIC_PATHS or path.startswith("/static/") or path.startswith("/download_sample/"):
+        return None
+
+    if path.startswith("/uploads/"):
+        if not session.get("user_id"):
+            return jsonify({"error": "Authentication required"}), 401
+        return None
+
+    protected_common = {"/change_password", "/confirmed_timetable", "/teacher/status"}
+
+    if path not in COORDINATOR_PATHS and path not in TEACHER_PATHS and path not in protected_common:
+        return None
+
+    if not session.get("user_id"):
+        return jsonify({"error": "Authentication required"}), 401
+
+    is_admin = bool(session.get("is_admin"))
+
+    if path in COORDINATOR_PATHS and not is_admin:
+        return jsonify({"error": "Coordinator access required"}), 403
+
+    if path in TEACHER_PATHS and is_admin:
+        return jsonify({"error": "Faculty access required"}), 403
+
+    return None
 
 
 @app.route("/uploads/<filename>")
@@ -65,101 +133,250 @@ def css():
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
+    identifier = (data.get("email") or data.get("identifier") or "").strip()
+    password = (data.get("password") or "").strip()
 
-    email    = data.get("email", "").strip()    if data else ""
-    password = data.get("password", "").strip() if data else ""
-
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    if not identifier:
+        return jsonify({"error": "Institutional email or Teacher ID is required"}), 400
     if not password:
         return jsonify({"error": "Password is required"}), 400
 
     try:
-        from db import get_db, check_password_hash
         database = get_db()
-
         user = database["teachers"].find_one({
             "$or": [
-                {"email": email},
-                {"teacher_id": email}
+                {"email": identifier.lower()},
+                {"email": identifier},
+                {"teacher_id": identifier},
+                {"teacher_id": identifier.upper()},
+                {"teacher_id": identifier.lower()},
             ]
         })
 
         if user is None:
-            return jsonify({"error": "Invalid credentials"}), 401
+            return jsonify({"error": "Invalid credentials. If you are a new faculty member, please sign up."}), 401
 
-        # --- @pict.edu domain check ---
-        if not email.lower().endswith("@pict.edu"):
-            return jsonify({"error": "Only @pict.edu email addresses are allowed"}), 403
+        user_email = (user.get("email") or f"{user.get('teacher_id')}@pict.edu").strip().lower()
+        if not user_email.endswith("@pict.edu") and not user.get("is_admin"):
+            return jsonify({"error": "Only @pict.edu institutional accounts are allowed"}), 403
 
-        # --- Password check ---
         stored_hash = user.get("password_hash")
-        teacher_id  = user.get("teacher_id", user.get("email", "").split("@")[0])
+        teacher_id = user.get("teacher_id", user_email.split("@")[0])
 
         if stored_hash:
-            # Normal path: validate against stored hash
-            if not check_password_hash(stored_hash, password):
-                return jsonify({"error": "Invalid credentials"}), 401
+            from db import check_password_hash
+            valid = check_password_hash(stored_hash, password)
         else:
-            # Legacy path: no password set yet → default password = teacher_id (e.g. "T1")
-            if password != teacher_id:
-                return jsonify({"error": "Invalid credentials"}), 401
+            # Fallback for unhashed test accounts
+            valid = (password == teacher_id or password == "password123")
 
-        user_email = user.get("email", f"{teacher_id}@pict.edu")
+        if not valid:
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        session.clear()
+        session["user_id"] = teacher_id
+        session["identifier"] = user_email
+        session["is_admin"] = bool(user.get("is_admin", False))
+
         return jsonify({
-            "name"      : user.get("name"),
-            "role"      : user.get("role"),
-            "is_admin"  : user.get("is_admin", False),
-            "history"   : user.get("history", []),
-            "identifier": user_email
+            "name": user.get("name", f"Prof. {teacher_id}"),
+            "role": user.get("role", "Junior"),
+            "department": user.get("department", "General"),
+            "is_admin": bool(user.get("is_admin", False)),
+            "history": user.get("history", []),
+            "identifier": user_email,
+            "teacher_id": teacher_id,
         })
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-        
+
+
+@app.route("/signup", methods=["POST"])
+def signup():
+    """Register or activate a faculty record with a user-selected password."""
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = (data.get("password") or "").strip()
+    confirm_password = (data.get("confirm_password") or "").strip()
+    name = (data.get("name") or "").strip()
+    department = (data.get("department") or "IT").strip()
+
+    if not email or not password or not confirm_password:
+        return jsonify({"error": "All fields are required"}), 400
+
+    if not email.endswith("@pict.edu"):
+        return jsonify({"error": "Please use your @pict.edu institutional email"}), 400
+
+    if password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+
+    if len(password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+
+    teacher_id = email.split("@")[0].strip()
+
+    try:
+        from db import generate_password_hash
+        database = get_db()
+        teachers = database["teachers"]
+
+        user = teachers.find_one({
+            "$or": [
+                {"teacher_id": teacher_id},
+                {"teacher_id": teacher_id.upper()},
+                {"email": email}
+            ]
+        })
+
+        if user is None:
+            # Create a new faculty member account
+            display_name = name or f"Prof. {teacher_id.capitalize()}"
+            new_doc = {
+                "teacher_id": teacher_id,
+                "email": email,
+                "name": display_name,
+                "role": "Junior",
+                "department": department,
+                "preferred_slots": [],
+                "has_served_high_role": False,
+                "duty_counts": {"squad": 0, "junior": 0, "senior": 0},
+                "last_role": "N/A",
+                "history": [],
+                "password_hash": generate_password_hash(password),
+                "password_changed": True,
+                "is_admin": False
+            }
+            teachers.insert_one(new_doc)
+            return jsonify({
+                "success": True,
+                "message": "Faculty account created successfully! You can now log in."
+            })
+
+        if user.get("is_admin", False):
+            return jsonify({
+                "error": "Coordinator accounts cannot be modified through faculty signup."
+            }), 403
+
+        # Update existing faculty record
+        teachers.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "email": email,
+                "password_hash": generate_password_hash(password),
+                "password_changed": True
+            }}
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Faculty account activated successfully! You can now log in."
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/seed_test_data", methods=["POST"])
+def seed_test_data():
+    """Endpoint to seed test teachers 001-010 on demand."""
+    try:
+        from seed_teachers import seed
+        seed()
+        return jsonify({"success": True, "message": "Test teachers 001 to 010 seeded successfully."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/session", methods=["GET"])
+def get_session():
+    if not session.get("user_id"):
+        return jsonify({"authenticated": False})
+
+    try:
+        database = get_db()
+        user = database["teachers"].find_one({
+            "teacher_id": session.get("user_id")
+        })
+
+        if not user:
+            session.clear()
+            return jsonify({"authenticated": False})
+
+        return jsonify({
+            "authenticated": True,
+            "name": user.get("name"),
+            "role": user.get("role"),
+            "is_admin": bool(user.get("is_admin", False)),
+            "history": user.get("history", []),
+            "identifier": user.get("email"),
+            "teacher_id": user.get("teacher_id")
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
+
 
 @app.route("/change_password", methods=["POST"])
 def change_password():
-    data             = request.get_json()
-    identifier       = (data.get("identifier", "") or "").strip()
-    current_password = (data.get("current_password", "") or "").strip()
-    new_password     = (data.get("new_password", "") or "").strip()
+    data = request.get_json() or {}
+    current_password = (data.get("current_password") or "").strip()
+    new_password = (data.get("new_password") or "").strip()
 
-    if not identifier or not current_password or not new_password:
+    if not current_password or not new_password:
         return jsonify({"error": "All fields are required"}), 400
+
     if len(new_password) < 6:
         return jsonify({"error": "New password must be at least 6 characters"}), 400
 
-    try:
-        from db import get_db, check_password_hash, update_password
-        database = get_db()
+    identifier = session.get("identifier")
+    if not identifier:
+        return jsonify({"error": "Invalid session"}), 401
 
+    try:
+        database = get_db()
         user = database["teachers"].find_one({
-            "$or": [{"email": identifier}, {"teacher_id": identifier}]
+            "$or": [
+                {"email": identifier},
+                {"teacher_id": session.get("user_id")}
+            ]
         })
+
         if user is None:
             return jsonify({"error": "User not found"}), 404
 
         stored_hash = user.get("password_hash")
-        teacher_id  = user.get("teacher_id", user.get("email", "").split("@")[0])
+        teacher_id = user.get("teacher_id")
 
-        # Validate current password (same logic as login)
         if stored_hash:
-            if not check_password_hash(stored_hash, current_password):
-                return jsonify({"error": "Current password is incorrect"}), 401
+            from db import check_password_hash
+            valid = check_password_hash(stored_hash, current_password)
         else:
-            # Legacy default = teacher_id
-            if current_password != teacher_id:
-                return jsonify({"error": "Current password is incorrect"}), 401
+            valid = current_password == teacher_id
 
-        ok = update_password(identifier, new_password)
-        if ok:
-            return jsonify({"success": True})
-        else:
+        if not valid:
+            return jsonify({"error": "Current password is incorrect"}), 401
+
+        from db import update_password
+        if not update_password(identifier, new_password):
             return jsonify({"error": "Failed to update password"}), 500
+
+        database["teachers"].update_one(
+            {"_id": user["_id"]},
+            {"$set": {"password_changed": True}}
+        )
+
+        return jsonify({"success": True})
 
     except Exception as e:
         import traceback
@@ -205,6 +422,16 @@ def generate():
     temp_path = "temp_data.xlsx"
     with open(temp_path, "wb") as f:
         f.write(file_content)
+
+    # Optional separate teacher preferences file (CSV or Excel)
+    temp_pref_path = None
+    if "preferences_file" in request.files:
+        pref_file = request.files["preferences_file"]
+        if pref_file and pref_file.filename != "":
+            ext = ".csv" if pref_file.filename.lower().endswith(".csv") else ".xlsx"
+            temp_pref_path = f"temp_preferences{ext}"
+            with open(temp_pref_path, "wb") as pf:
+                pf.write(pref_file.read())
 
     # -----------------------------------------------
     # 1b. Validate required Excel sheets are present
@@ -479,7 +706,7 @@ def generate():
     # -----------------------------------------------
     faculty_status = {}
     try:
-        teachers = load_teacher_data(temp_path)
+        teachers = load_teacher_data(temp_path, preferences_filepath=temp_pref_path)
         if branch_filter != "ALL":
             # Include teachers from the selected branch OR those marked as 'General' (cross-department)
             teachers = {
@@ -937,6 +1164,12 @@ def request_adjustment():
     from db import get_db, format_date_to_standard
     
     teacher_id = request.form.get("teacher_id", "").strip()
+
+    # Never trust the teacher_id supplied by the browser for a faculty request.
+    # The authenticated session is the source of truth.
+    if not session.get("is_admin"):
+        teacher_id = session.get("user_id", "").strip()
+
     current_date = format_date_to_standard(request.form.get("current_date", "").strip())
     current_slot = request.form.get("current_slot", "").strip()
     current_session = request.form.get("current_session", "").strip()
@@ -1285,9 +1518,16 @@ def reject_adjustment():
 @app.route("/teacher/status", methods=["GET"])
 def get_teacher_status():
     from db import get_db
-    identifier = request.args.get("identifier")
+    identifier = request.args.get("identifier", "").strip()
+
+    # Faculty may only read their own status. Coordinators may inspect any
+    # faculty member when the identifier is explicitly supplied.
+    if not session.get("is_admin"):
+        identifier = session.get("identifier", "")
+
     if not identifier:
         return jsonify({"error": "Missing identifier"}), 400
+
     try:
         database = get_db()
         user = database["teachers"].find_one({
@@ -1309,6 +1549,22 @@ def get_teacher_status():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/download_sample/<sample_type>", methods=["GET"])
+def download_sample(sample_type):
+    """Download sample exam data Excel or sample teacher preferences CSV."""
+    if sample_type == "excel":
+        file_path = os.path.join(BASE_DIR, "sample_exam_data.xlsx")
+        if not os.path.exists(file_path):
+            from generate_sample_excel import generate
+            generate()
+        return send_file(file_path, as_attachment=True, download_name="sample_exam_data.xlsx")
+    elif sample_type == "preferences" or sample_type == "csv":
+        file_path = os.path.join(BASE_DIR, "sample_teacher_preferences.csv")
+        return send_file(file_path, as_attachment=True, download_name="sample_teacher_preferences.csv", mimetype="text/csv")
+    else:
+        return jsonify({"error": "Unknown sample type. Use 'excel' or 'preferences'."}), 404
 
 
 if __name__ == "__main__":

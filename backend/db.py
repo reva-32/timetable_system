@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "TimeTable")
@@ -246,10 +247,18 @@ def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False, cou
     if is_high_role:
         update_data["$set"]["has_served_high_role"] = True
 
-    # Try the new field first, fall back to email for legacy docs
-    result = database["teachers"].update_one({"teacher_id": teacher_id}, update_data)
-    if result.matched_count == 0:
-        database["teachers"].update_one({"email": teacher_id}, update_data)
+    # Query by teacher_id, numeric formats, and email
+    query_filters = [
+        {"teacher_id": str(teacher_id)},
+        {"teacher_id": str(teacher_id).upper()},
+        {"email": str(teacher_id).lower()},
+        {"email": f"{teacher_id}@pict.edu".lower()}
+    ]
+    if str(teacher_id).isdigit():
+        query_filters.append({"teacher_id": f"{int(teacher_id):03d}"})
+        query_filters.append({"teacher_id": str(int(teacher_id))})
+
+    database["teachers"].update_one({"$or": query_filters}, update_data)
 
 
 def check_reset_fairness(department="IT"):
@@ -305,6 +314,47 @@ def update_password(identifier: str, new_password: str) -> bool:
         {"$set": {"password_hash": new_hash}}
     )
     return result.matched_count > 0
+
+
+def ensure_coordinator():
+    """
+    Create the coordinator account from environment variables if it does not
+    already exist. Existing coordinator passwords are not overwritten on every
+    server restart.
+    """
+    coordinator_email = (os.getenv("COORDINATOR_EMAIL") or "").strip().lower()
+    coordinator_password = os.getenv("COORDINATOR_PASSWORD") or ""
+
+    if not coordinator_email or not coordinator_password:
+        return False
+
+    database = get_db()
+    teachers = database["teachers"]
+    existing = teachers.find_one({"email": coordinator_email})
+
+    if existing:
+        update = {"is_admin": True}
+        if not existing.get("role"):
+            update["role"] = "Coordinator"
+        teachers.update_one({"_id": existing["_id"]}, {"$set": update})
+        return True
+
+    teacher_id = coordinator_email.split("@")[0].upper()
+    teachers.insert_one({
+        "teacher_id": teacher_id,
+        "email": coordinator_email,
+        "name": os.getenv("COORDINATOR_NAME", "Examination Coordinator"),
+        "role": "Coordinator",
+        "department": os.getenv("COORDINATOR_DEPARTMENT", "IT"),
+        "is_admin": True,
+        "has_served_high_role": True,
+        "duty_counts": {"squad": 0, "junior": 0, "senior": 0},
+        "last_role": "N/A",
+        "history": [],
+        "password_hash": generate_password_hash(coordinator_password),
+        "password_changed": True,
+    })
+    return True
 
 
 if __name__ == "__main__":

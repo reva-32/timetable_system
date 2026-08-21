@@ -64,3 +64,7 @@ logs/
 backend/uploads/
 *.pdf
 *.xlsx
+# Keep the upload directory, but never commit uploaded documents
+!backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep

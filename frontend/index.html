@@ -23,7 +23,7 @@
   <!-- NAV -->
   <nav>
     <div class="nav-inner">
-      <div class="brand">
+      <div class="brand" onclick="goHome()" style="cursor:pointer">
         <div class="brand-mark">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
             <rect x="2" y="2" width="11" height="11" rx="3.5" fill="#6366f1" />
@@ -34,50 +34,169 @@
         </div>
         <span class="brand-name">Examination Portal</span>
       </div>
-      <div class="nav-pills">
-        <span class="npill">Academic Management</span>
-        <span class="npill hi">Timetable System</span>
+
+      <div class="nav-actions">
+        <span class="npill">PICT</span>
+        <button class="exbtn" onclick="showAuth('login')" style="padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer;">
+          Sign In
+        </button>
+        <button id="themeToggle" class="theme-toggle" type="button" onclick="toggleTheme()"
+          aria-label="Toggle dark mode">
+          <span id="themeIcon">☀</span>
+          <span id="themeLabel">Light</span>
+        </button>
       </div>
     </div>
   </nav>
 
-  <!-- LOGIN PAGE -->
-  <section id="loginPage">
-    <div class="auth-card">
-      <div class="auth-header">
-        <div class="auth-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
+  <!-- LANDING PAGE -->
+  <section id="landingPage" class="landing-page" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:80px 20px 40px;">
+    <div style="text-align:center; margin-bottom:56px; max-width:560px;">
+      <div class="landing-badge">PICT • Examination Management</div>
+      <h1 style="font-size:clamp(2.4rem,5vw,3.4rem); margin-top:16px; line-height:1.1;">Exam Timetable<br><span class="gt">Made Simple.</span></h1>
+      <p class="landing-copy" style="margin-top:18px; font-size:1.05rem;">
+        Generate conflict-free examination schedules, allocate rooms,
+        and manage faculty duties from one centralized portal.
+      </p>
+    </div>
+
+    <div style="display:flex; gap:28px; flex-wrap:wrap; justify-content:center; max-width:800px; width:100%;">
+      <!-- COORDINATOR CARD -->
+      <div class="auth-card" style="flex:1; min-width:280px; max-width:360px; padding:36px 32px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; display:block;" onclick="showAuth('coordinator')" onmouseover="this.style.transform='translateY(-6px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="width:60px; height:60px; border-radius:18px; background:linear-gradient(135deg, #6366f1, #8b5cf6); display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow:0 8px 20px rgba(99,102,241,0.35);">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
+            <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2Z"/>
           </svg>
         </div>
-        <h2 id="loginTitle">Faculty Login</h2>
-        <p id="loginSubtitle">Sign in with your PICT institutional credentials</p>
-      </div>
-      <!-- Role Switcher Tabs -->
-      <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 2rem; background: #f1f5f9; padding: 4px; border-radius: 12px; border: 1px solid #e2e8f0;">
-        <button id="tabTeacher" class="auth-tab" style="flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: var(--surface); font-weight: 600; color: var(--txt-main); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="switchLoginRole('teacher')">
-          Faculty
+        <h2 style="font-size:1.35rem; font-weight:700; margin-bottom:8px;">Coordinator Login</h2>
+        <p style="color:var(--txt-dim); font-size:0.9rem; line-height:1.6; margin-bottom:24px;">Access the timetable generator, upload exam data, and manage faculty duty assignments.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Generate Timetable</span>
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Room Allocation</span>
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Duty Management</span>
+        </div>
+        <button class="cta w-full" style="pointer-events:none;">
+          Sign In as Coordinator
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
-        <button id="tabAdmin" class="auth-tab" style="flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; background: transparent; font-weight: 500; color: var(--txt-dim); transition: all 0.2s;" onclick="switchLoginRole('admin')">
-          Coordinator
+      </div>
+
+      <!-- FACULTY CARD -->
+      <div class="auth-card" style="flex:1; min-width:280px; max-width:360px; padding:36px 32px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; display:block;" onclick="showAuth('faculty')" onmouseover="this.style.transform='translateY(-6px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="width:60px; height:60px; border-radius:18px; background:linear-gradient(135deg, #06b6d4, #3b82f6); display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow:0 8px 20px rgba(6,182,212,0.35);">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <h2 style="font-size:1.35rem; font-weight:700; margin-bottom:8px;">Faculty Portal</h2>
+        <p style="color:var(--txt-dim); font-size:0.9rem; line-height:1.6; margin-bottom:24px;">View your assigned exam duties, download duty slips, and request schedule adjustments.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">View Duties</span>
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">Download Slip</span>
+          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">Request Change</span>
+        </div>
+        <button class="cta w-full" style="background:linear-gradient(135deg,#06b6d4,#3b82f6); pointer-events:none;">
+          Login / Sign Up as Faculty
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       </div>
-      <div class="auth-form">
+    </div>
+
+    <div class="landing-features" style="margin-top:48px; gap:24px;">
+      <div><span>✓</span> Conflict-free scheduling</div>
+      <div><span>✓</span> Room allocation</div>
+      <div><span>✓</span> Faculty duty management</div>
+    </div>
+  </section>
+
+  <!-- AUTHENTICATION PAGE -->
+  <section id="loginPage" class="auth-page" style="display:none">
+    <div class="auth-card" style="max-width:440px;">
+      <button class="auth-back" type="button" onclick="goHome()">← Back to home</button>
+
+      <!-- Role Badge -->
+      <div id="authRoleBadge" style="display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-size:12px; font-weight:700; margin-bottom:20px; text-transform:uppercase; letter-spacing:0.5px;">👑 Coordinator Portal</div>
+
+      <div class="auth-header">
+        <h2 id="loginTitle">Welcome Back</h2>
+        <p id="loginSubtitle">Sign in with your PICT coordinator credentials</p>
+      </div>
+
+      <!-- Faculty-only: Login/Signup tabs -->
+      <div class="auth-switch" id="authModeTabs" style="display:none;">
+        <button id="loginModeBtn" class="auth-mode active" type="button" onclick="showFacultyTab('login')">Login</button>
+        <button id="signupModeBtn" class="auth-mode" type="button" onclick="showFacultyTab('signup')">Sign Up</button>
+      </div>
+
+      <!-- LOGIN FORM (shared by Coordinator and Faculty login) -->
+      <div id="loginForm" class="auth-form">
         <div class="input-group">
           <label for="emailInput" id="emailLabel">Institutional Email</label>
-          <input type="email" id="emailInput" placeholder="T1@pict.edu" required
+          <input type="text" id="emailInput" placeholder="coordinator@pict.edu" autocomplete="username"
             onkeydown="if(event.key==='Enter') document.getElementById('passwordInput').focus()">
-          <span id="emailHelp" style="font-size:.75rem;color:var(--txt-dim);margin-top:.25rem;display:block">Format: YourTeacherID@pict.edu</span>
+          <span id="emailHelp" class="input-help">Enter your @pict.edu institutional email</span>
         </div>
+
         <div class="input-group">
           <label for="passwordInput">Password</label>
-          <input type="password" id="passwordInput" placeholder="Default: your Teacher ID (e.g. T1)" required
+          <input type="password" id="passwordInput" placeholder="Enter your password" autocomplete="current-password"
             onkeydown="if(event.key==='Enter') handleLogin()">
-          <span class="error-msg" id="loginError"></span>
         </div>
-        <button class="cta w-full" onclick="handleLogin()">
-          <span>Access Dashboard</span>
+
+        <span class="error-msg" id="loginError"></span>
+
+        <button class="cta w-full" id="loginSubmitBtn" onclick="handleLogin()">
+          <span id="loginBtnText">Sign In</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- SIGNUP FORM (Faculty only) -->
+      <div id="signupForm" class="auth-form" style="display:none">
+        <div class="signup-note">
+          Register your faculty account or activate a pre-loaded profile.
+        </div>
+
+        <div class="input-group">
+          <label for="signupName">Full Name</label>
+          <input type="text" id="signupName" placeholder="Prof. Jane Doe" autocomplete="name">
+        </div>
+
+        <div class="input-group">
+          <label for="signupDept">Department</label>
+          <select id="signupDept" style="width:100%;">
+            <option value="IT" selected>Information Technology (IT)</option>
+            <option value="CE">Computer Engineering (CE)</option>
+            <option value="ENTC">Electronics &amp; Telecommunication (ENTC)</option>
+            <option value="AIDS">Artificial Intelligence &amp; Data Science (AIDS)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="signupEmail">Institutional Email</label>
+          <input type="email" id="signupEmail" placeholder="t001@pict.edu" autocomplete="email">
+          <span class="input-help">Use your @pict.edu institutional email.</span>
+        </div>
+
+        <div class="input-group">
+          <label for="signupPassword">Create Password</label>
+          <input type="password" id="signupPassword" placeholder="At least 4 characters" autocomplete="new-password">
+        </div>
+
+        <div class="input-group">
+          <label for="signupConfirmPassword">Confirm Password</label>
+          <input type="password" id="signupConfirmPassword" placeholder="Repeat your password"
+            autocomplete="new-password" onkeydown="if(event.key==='Enter') handleSignup()">
+        </div>
+
+        <span class="error-msg" id="signupError"></span>
+        <span class="success-msg" id="signupSuccess"></span>
+
+        <button class="cta w-full" onclick="handleSignup()" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);">
+          <span>Create / Activate Faculty Account</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="9 18 15 12 9 6" />
           </svg>
@@ -129,105 +248,152 @@
 
       <div class="dash-main" style="flex:1; display:flex; flex-direction:column;">
         <div id="generatorView" class="dash-grid">
-        <div class="dash-card">
-          <h3>Exam Settings</h3>
-          <div class="form-grid">
-            <div class="input-group">
-              <label>Academic Year</label>
-              <select id="yearSelect" onchange="step1()">
-                <option value="" disabled selected>Select Year</option>
-                <option value="ALL">All Years</option>
-                <option value="FY">FY (First Year)</option>
-                <option value="SY">SY (Second Year)</option>
-                <option value="TY">TY (Third Year)</option>
-                <option value="B.Tech">B.Tech (Final Year)</option>
-              </select>
-            </div>
-            <div class="input-group">
-              <label>Department / Branch</label>
-              <select id="branchSelect" onchange="step2()" disabled>
-                <option value="" disabled selected>Select Branch</option>
-                <option value="ALL">All Branches</option>
-                <option value="CE">CE</option>
-                <option value="IT">IT</option>
-                <option value="AIDS">AIDS</option>
-                <option value="ECE">ECE</option>
-                <option value="ENTC">ENTC</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="input-group mt-6">
-            <label>Exam Type</label>
-            <select id="examTypeSelect" onchange="step3()" disabled>
-              <option value="" disabled selected>Select Exam Type</option>
-              <option value="Insem">Insem (Internal)</option>
-              <option value="Endsem">Endsem (Final)</option>
-              <option value="Practical">Practical</option>
-            </select>
-          </div>
-
-          <!-- Exam Start Date removed: dates are read from uploaded Excel Courses sheet -->
-
-          <div class="input-group mt-6">
-            <label>Available Time Slots</label>
-            <div class="slot-list disabled" id="slotList">
-              <p class="slot-placeholder">Select exam type to view slots</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="dash-card">
-          <h3>Data Upload</h3>
-          <div class="ucard disabled" id="uploadCard">
-            <div class="uzone disabled" id="uzone">
-              <div class="uzone-inner">
-                <div class="uico">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                </div>
-                <p class="uprim">Drop your <strong>exam_data.xlsx</strong></p>
-                <p class="usec">or <span class="ulink">browse files</span></p>
-                <input type="file" id="fileInput" accept=".xlsx" hidden disabled>
+          <div class="dash-card">
+            <h3>Exam Settings</h3>
+            <div class="form-grid">
+              <div class="input-group">
+                <label>Academic Year</label>
+                <select id="yearSelect" onchange="step1()">
+                  <option value="" disabled selected>Select Year</option>
+                  <option value="ALL">All Years</option>
+                  <option value="FY">FY (First Year)</option>
+                  <option value="SY">SY (Second Year)</option>
+                  <option value="TY">TY (Third Year)</option>
+                  <option value="B.Tech">B.Tech (Final Year)</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label>Department / Branch</label>
+                <select id="branchSelect" onchange="step2()" disabled>
+                  <option value="" disabled selected>Select Branch</option>
+                  <option value="ALL">All Branches</option>
+                  <option value="CE">CE</option>
+                  <option value="IT">IT</option>
+                  <option value="AIDS">AIDS</option>
+                  <option value="ECE">ECE</option>
+                  <option value="ENTC">ENTC</option>
+                </select>
               </div>
             </div>
 
-            <div class="fpill" id="fpill" style="display:none">
-              <span class="fpill-ico">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-              </span>
-              <span id="fname" class="fpill-name"></span>
-              <button class="fpill-rm" onclick="clearFile()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
+            <div class="input-group mt-6">
+              <label>Exam Type</label>
+              <select id="examTypeSelect" onchange="step3()" disabled>
+                <option value="" disabled selected>Select Exam Type</option>
+                <option value="Insem">Insem (Internal)</option>
+                <option value="Endsem">Endsem (Final)</option>
+                <option value="Practical">Practical</option>
+              </select>
+            </div>
+
+            <div class="input-group mt-6">
+              <label for="examStartDate">Exam Start Date</label>
+              <input type="date" id="examStartDate" style="width:100%;" onchange="step3Check()">
+              <span class="input-help">First day of the examination period. Dates are auto-assigned from this date onward.</span>
+            </div>
+
+            <div class="input-group mt-6">
+              <label>Available Time Slots</label>
+              <div class="slot-list disabled" id="slotList">
+                <p class="slot-placeholder">Select exam type to view slots</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+              <h3 style="margin-bottom:0;">Data Upload</h3>
+              <div style="display:flex; gap:8px;">
+                <a href="/download_sample/excel" class="exbtn" style="padding:6px 12px; font-size:12px; text-decoration:none;" title="Download sample exam workbook">
+                  📥 Sample Excel
+                </a>
+                <a href="/download_sample/preferences" class="exbtn" style="padding:6px 12px; font-size:12px; text-decoration:none;" title="Download sample teacher preferences CSV">
+                  📑 Prefs CSV
+                </a>
+              </div>
+            </div>
+
+            <div class="ucard disabled" id="uploadCard">
+              <!-- PRIMARY EXAM DATA FILE -->
+              <label style="font-size:12px; font-weight:700; color:var(--txt-dim); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.5px;">1. Primary Exam Dataset (.xlsx)</label>
+              <div class="uzone disabled" id="uzone" style="padding:28px 20px; margin-bottom:16px;">
+                <div class="uzone-inner" style="gap:10px;">
+                  <div class="uico" style="width:48px; height:48px; border-radius:14px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </div>
+                  <p class="uprim" style="font-size:14px;">Drop your <strong>exam_data.xlsx</strong></p>
+                  <p class="usec" style="font-size:12px;">or <span class="ulink">browse files</span></p>
+                  <input type="file" id="fileInput" accept=".xlsx,.xls" hidden disabled>
+                </div>
+              </div>
+
+              <div class="fpill" id="fpill" style="display:none; margin-bottom:16px;">
+                <span class="fpill-ico">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </span>
+                <span id="fname" class="fpill-name"></span>
+                <button class="fpill-rm" onclick="clearFile()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- TEACHER PREFERENCES FILE (OPTIONAL CSV/XLSX) -->
+              <div style="border-top:1px dashed var(--border); padding-top:14px; margin-top:10px;">
+                <label style="font-size:12px; font-weight:700; color:var(--txt-dim); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.5px;">2. Teacher Preferences (.csv / .xlsx) <span style="font-size:11px; text-transform:none; font-weight:normal; color:#10b981;">(Optional)</span></label>
+                <div class="uzone disabled" id="prefUzone" style="padding:18px 16px; margin-bottom:16px; border-style:dashed;">
+                  <div class="uzone-inner" style="gap:6px;">
+                    <p class="uprim" style="font-size:13px;">Drop <strong>teacher_preferences.csv</strong></p>
+                    <p class="usec" style="font-size:11px;">or <span class="ulink">select CSV/Excel</span></p>
+                    <input type="file" id="prefFileInput" accept=".csv,.xlsx,.xls" hidden disabled>
+                  </div>
+                </div>
+
+                <div class="fpill" id="prefFpill" style="display:none; margin-bottom:16px;">
+                  <span class="fpill-ico" style="color:#10b981;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  </span>
+                  <span id="prefFname" class="fpill-name" style="color:#059669;"></span>
+                  <button class="fpill-rm" onclick="clearPrefFile()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <button class="cta w-full mt-6" id="genBtn" onclick="generate()" disabled>
+                <span>Generate Timetable</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="9 18 15 12 9 6" />
                 </svg>
               </button>
             </div>
-
-            <button class="cta w-full mt-6" id="genBtn" onclick="generate()" disabled>
-              <span>Generate Timetable</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
           </div>
         </div>
-        </div>
-        
+
         <!-- ADJUSTMENTS VIEW -->
         <div id="adjustmentsView" style="display:none;" class="dash-card">
           <div class="dash-header" style="margin-bottom: 24px; display:block; text-align:left;">
-            <h2 style="font-family: var(--inter); font-weight:700; font-size: 32px; color: #1e293b; margin-bottom: 6px;">Duty Adjustments</h2>
+            <h2
+              style="font-family: var(--inter); font-weight:700; font-size: 32px; color: #1e293b; margin-bottom: 6px;">
+              Duty Adjustments</h2>
             <p style="color: var(--txt-dim); font-size: 15px;">Review and manage faculty change requests.</p>
           </div>
-          
+
           <div class="tscroll" style="margin-top: 16px;">
             <table style="width: 100%;">
               <thead>
@@ -283,9 +449,30 @@
       </div>
 
       <div class="dash-main">
-        <div class="dash-header">
-          <h1>My Assigned <span class="gt">Duties</span></h1>
-          <p>Your confirmed exam supervision schedule.</p>
+        <div class="dash-header" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:20px;">
+          <div>
+            <h1>My Assigned <span class="gt">Duties</span></h1>
+            <p>Your confirmed exam supervision schedule.</p>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <button class="exbtn glow" onclick="downloadTeacherDutiesPDF()" style="background:var(--acc-ind); color:#fff; border:none; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Duty Slip (PDF)
+            </button>
+            <button class="exbtn" onclick="exportTeacherDutiesCSV()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <polyline points="9 15 12 12 15 15" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         <!-- UPCOMING DUTIES -->
@@ -657,8 +844,8 @@
         const monthStr = match[2].toLowerCase();
         const year = parseInt(match[3], 10);
         const months = {
-          jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
-          jul:6, aug:7, sep:8, oct:9, nov:10, dec:11
+          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
         };
         const month = months[monthStr.substring(0, 3)];
         if (month !== undefined) {
@@ -672,15 +859,31 @@
       fpill = document.getElementById('fpill'), fname = document.getElementById('fname'),
       genBtn = document.getElementById('genBtn');
 
+    const prefUzone = document.getElementById('prefUzone'), prefFi = document.getElementById('prefFileInput'),
+      prefFpill = document.getElementById('prefFpill'), prefFname = document.getElementById('prefFname');
+
     uzone.addEventListener('click', () => fi.click());
     uzone.addEventListener('dragover', e => { e.preventDefault(); uzone.classList.add('drag') });
     uzone.addEventListener('dragleave', () => uzone.classList.remove('drag'));
     uzone.addEventListener('drop', e => {
       e.preventDefault(); uzone.classList.remove('drag');
       const f = e.dataTransfer.files[0];
-      if (f && f.name.endsWith('.xlsx')) setFile(f); else alert('Please upload a .xlsx file');
+      if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) setFile(f); else alert('Please upload an Excel file (.xlsx or .xls)');
     });
     fi.addEventListener('change', () => fi.files[0] && setFile(fi.files[0]));
+
+    if (prefUzone && prefFi) {
+      prefUzone.addEventListener('click', () => prefFi.click());
+      prefUzone.addEventListener('dragover', e => { e.preventDefault(); prefUzone.classList.add('drag') });
+      prefUzone.addEventListener('dragleave', () => prefUzone.classList.remove('drag'));
+      prefUzone.addEventListener('drop', e => {
+        e.preventDefault(); prefUzone.classList.remove('drag');
+        const f = e.dataTransfer.files[0];
+        if (f && (f.name.endsWith('.csv') || f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) setPrefFile(f);
+        else alert('Please upload a .csv or .xlsx file for teacher preferences');
+      });
+      prefFi.addEventListener('change', () => prefFi.files[0] && setPrefFile(prefFi.files[0]));
+    }
 
     function setFile(f) {
       fname.textContent = f.name;
@@ -693,6 +896,18 @@
       fpill.style.display = 'none';
       uzone.style.display = 'flex';
       genBtn.disabled = true;
+    }
+
+    function setPrefFile(f) {
+      if (prefFname) prefFname.textContent = f.name;
+      if (prefFpill) prefFpill.style.display = 'flex';
+      if (prefUzone) prefUzone.style.display = 'none';
+    }
+
+    function clearPrefFile() {
+      if (prefFi) prefFi.value = '';
+      if (prefFpill) prefFpill.style.display = 'none';
+      if (prefUzone) prefUzone.style.display = 'flex';
     }
 
     const stages = [
@@ -725,70 +940,142 @@
   <option value="ENTC">ENTC</option>
 `;
 
-    let currentLoginRole = 'teacher';
-    function switchLoginRole(role) {
-      currentLoginRole = role;
-      const tabTeacher = document.getElementById('tabTeacher');
-      const tabAdmin = document.getElementById('tabAdmin');
-      const loginTitle = document.getElementById('loginTitle');
-      const loginSubtitle = document.getElementById('loginSubtitle');
+    let currentUser = null;
+
+    function setTheme(theme) {
+      const selected = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', selected);
+      localStorage.setItem('theme', selected);
+
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      if (icon) icon.textContent = selected === 'dark' ? '☾' : '☀';
+      if (label) label.textContent = selected === 'dark' ? 'Dark' : 'Light';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      setTheme(current === 'light' ? 'dark' : 'light');
+    }
+
+    function initializeTheme() {
+      const saved = localStorage.getItem('theme') || 'light';
+      setTheme(saved);
+    }
+
+    function renderHome() {
+      document.getElementById('landingPage').style.display = 'flex';
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('uploadPage').style.display = 'none';
+      document.getElementById('teacherPage').style.display = 'none';
+      document.getElementById('resultsPage').style.display = 'none';
+      document.getElementById('loginError').textContent = '';
+      const signupError = document.getElementById('signupError');
+      if (signupError) signupError.textContent = '';
+      const signupSuccess = document.getElementById('signupSuccess');
+      if (signupSuccess) signupSuccess.textContent = '';
+    }
+
+    function goHome() {
+      if (window.history.state && window.history.state.page === 'auth') {
+        window.history.back();
+        return;
+      }
+      renderHome();
+      window.history.replaceState({ page: 'landing' }, '', window.location.href);
+    }
+
+    // Tracks which portal is being shown: 'coordinator' or 'faculty'
+    let currentAuthRole = 'coordinator';
+
+    function showAuth(role = 'coordinator', pushHistory = true) {
+      currentAuthRole = role;
+      document.getElementById('landingPage').style.display = 'none';
+      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('uploadPage').style.display = 'none';
+      document.getElementById('teacherPage').style.display = 'none';
+      document.getElementById('resultsPage').style.display = 'none';
+
+      if (pushHistory) {
+        window.history.pushState({ page: 'auth', role }, '', window.location.href);
+      } else {
+        window.history.replaceState({ page: 'auth', role }, '', window.location.href);
+      }
+
+      const badge = document.getElementById('authRoleBadge');
+      const title = document.getElementById('loginTitle');
+      const subtitle = document.getElementById('loginSubtitle');
+      const tabs = document.getElementById('authModeTabs');
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
       const emailLabel = document.getElementById('emailLabel');
       const emailHelp = document.getElementById('emailHelp');
-      const passwordInput = document.getElementById('passwordInput');
       const emailInput = document.getElementById('emailInput');
-      const err = document.getElementById('loginError');
-      err.textContent = '';
-      
-      if (role === 'teacher') {
-        tabTeacher.style.background = 'var(--surface)';
-        tabTeacher.style.color = 'var(--txt-main)';
-        tabTeacher.style.fontWeight = '600';
-        tabTeacher.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        
-        tabAdmin.style.background = 'transparent';
-        tabAdmin.style.color = 'var(--txt-dim)';
-        tabAdmin.style.fontWeight = '500';
-        tabAdmin.style.boxShadow = 'none';
-        
-        loginTitle.textContent = 'Faculty Login';
-        loginSubtitle.textContent = 'Sign in with your PICT institutional credentials';
-        emailLabel.textContent = 'Institutional Email';
-        emailInput.placeholder = 'T1@pict.edu';
-        emailHelp.textContent = 'Format: YourTeacherID@pict.edu';
-        passwordInput.placeholder = 'Default: your Teacher ID (e.g. T1)';
-      } else {
-        tabAdmin.style.background = 'var(--surface)';
-        tabAdmin.style.color = 'var(--txt-main)';
-        tabAdmin.style.fontWeight = '600';
-        tabAdmin.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        
-        tabTeacher.style.background = 'transparent';
-        tabTeacher.style.color = 'var(--txt-dim)';
-        tabTeacher.style.fontWeight = '500';
-        tabTeacher.style.boxShadow = 'none';
-        
-        loginTitle.textContent = 'Coordinator Login';
-        loginSubtitle.textContent = 'Sign in to manage schedules & duties';
+      const loginBtnText = document.getElementById('loginBtnText');
+      const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+
+      // Always show login form when switching roles
+      loginForm.style.display = 'block';
+      signupForm.style.display = 'none';
+
+      document.getElementById('loginError').textContent = '';
+      if (document.getElementById('signupError')) document.getElementById('signupError').textContent = '';
+      if (document.getElementById('signupSuccess')) document.getElementById('signupSuccess').textContent = '';
+
+      if (role === 'coordinator') {
+        badge.textContent = '👑 Coordinator Portal';
+        badge.style.background = 'rgba(99,102,241,0.1)';
+        badge.style.color = '#6366f1';
+        tabs.style.display = 'none';
+        title.textContent = 'Coordinator Login';
+        subtitle.textContent = 'Sign in with your PICT coordinator credentials';
         emailLabel.textContent = 'Coordinator Email';
-        emailInput.placeholder = 'validator@pict.edu';
-        emailHelp.textContent = 'Format: admin_username@pict.edu';
-        passwordInput.placeholder = 'Enter coordinator password';
+        emailHelp.textContent = 'Enter your @pict.edu coordinator email address';
+        emailInput.placeholder = 'coordinator@pict.edu';
+        loginBtnText.textContent = 'Sign In as Coordinator';
+        loginSubmitBtn.style.background = '';
+      } else {
+        // Faculty portal
+        badge.textContent = '👨‍🏫 Faculty Portal';
+        badge.style.background = 'rgba(6,182,212,0.1)';
+        badge.style.color = '#0891b2';
+        tabs.style.display = 'flex';
+        title.textContent = 'Faculty Login';
+        subtitle.textContent = 'Sign in with your Teacher ID or @pict.edu email';
+        emailLabel.textContent = 'Teacher ID or Institutional Email';
+        emailHelp.textContent = 'Enter your Teacher ID (e.g. T001) or email (t001@pict.edu)';
+        emailInput.placeholder = 'T001 or t001@pict.edu';
+        loginBtnText.textContent = 'Sign In as Faculty';
+        loginSubmitBtn.style.background = 'linear-gradient(135deg, #06b6d4, #3b82f6)';
+
+        // Sync tab buttons
+        document.getElementById('loginModeBtn').classList.add('active');
+        document.getElementById('signupModeBtn').classList.remove('active');
       }
     }
 
-    function handleLogin() {
-      const email    = document.getElementById('emailInput').value.trim();
+    function showFacultyTab(mode) {
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const loginBtn = document.getElementById('loginModeBtn');
+      const signupBtn = document.getElementById('signupModeBtn');
+      loginForm.style.display = mode === 'login' ? 'block' : 'none';
+      signupForm.style.display = mode === 'signup' ? 'block' : 'none';
+      loginBtn.classList.toggle('active', mode === 'login');
+      signupBtn.classList.toggle('active', mode === 'signup');
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('signupError').textContent = '';
+      document.getElementById('signupSuccess').textContent = '';
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('emailInput').value.trim();
       const password = document.getElementById('passwordInput').value;
-      const err      = document.getElementById('loginError');
+      const err = document.getElementById('loginError');
       err.textContent = '';
 
       if (!email) {
-        err.textContent = 'Please enter your institutional email.';
-        return;
-      }
-      // Client-side domain validation
-      if (!email.toLowerCase().endsWith('@pict.edu')) {
-        err.textContent = 'Email must end with @pict.edu (e.g. T1@pict.edu)';
+        err.textContent = 'Please enter your institutional email or Teacher ID.';
         return;
       }
       if (!password) {
@@ -796,27 +1083,243 @@
         return;
       }
 
-      fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-        .then(async r => {
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.error || 'Login failed');
-          return data;
-        })
-        .then(user => {
-          localStorage.setItem('user', JSON.stringify(user));
-          document.getElementById('passwordInput').value = '';
-          showDashboard(user);
-        })
-        .catch(error => {
-          err.textContent = error.message;
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
         });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Login failed');
+
+        currentUser = data;
+        document.getElementById('passwordInput').value = '';
+        showDashboard(data);
+      } catch (error) {
+        err.textContent = error.message;
+      }
+    }
+
+    async function handleSignup() {
+      const name = document.getElementById('signupName') ? document.getElementById('signupName').value.trim() : '';
+      const dept = document.getElementById('signupDept') ? document.getElementById('signupDept').value : 'IT';
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupConfirmPassword').value;
+      const err = document.getElementById('signupError');
+      const success = document.getElementById('signupSuccess');
+
+      err.textContent = '';
+      success.textContent = '';
+
+      if (!email || !password || !confirmPassword) {
+        err.textContent = 'Please fill in all fields.';
+        return;
+      }
+
+      if (!email.toLowerCase().endsWith('@pict.edu')) {
+        err.textContent = 'Please use your @pict.edu institutional email.';
+        return;
+      }
+
+      if (password.length < 4) {
+        err.textContent = 'Password must be at least 4 characters.';
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        err.textContent = 'Passwords do not match.';
+        return;
+      }
+
+      try {
+        const response = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            department: dept,
+            email,
+            password,
+            confirm_password: confirmPassword
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Signup failed');
+
+        success.textContent = data.message || 'Account created successfully.';
+        document.getElementById('signupPassword').value = '';
+        document.getElementById('signupConfirmPassword').value = '';
+
+        setTimeout(() => {
+          document.getElementById('emailInput').value = email;
+          showAuth('login');
+        }, 900);
+      } catch (error) {
+        err.textContent = error.message;
+      }
+    }
+
+    function downloadTeacherDutiesPDF() {
+      if (!currentUser || !currentUser.history || currentUser.history.length === 0) {
+        alert("No confirmed duties found on record to generate a slip.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      // Header Banner
+      doc.setFillColor(99, 102, 241);
+      doc.rect(0, 0, 210, 24, 'F');
+
+      doc.setFont("Inter", "bold");
+      doc.setFontSize(15);
+      doc.setTextColor(255, 255, 255);
+      doc.text("PUNE INSTITUTE OF COMPUTER TECHNOLOGY (PICT)", 105, 11, { align: "center" });
+
+      doc.setFontSize(9.5);
+      doc.setFont("Inter", "normal");
+      doc.text("Examination Section — Faculty Supervision Duty Allotment Slip", 105, 18, { align: "center" });
+
+      // Supervisor Details Box
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, 30, 182, 30, 2, 2, 'FD');
+
+      doc.setFont("Inter", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Supervisor: ${currentUser.name || 'Faculty Member'}`, 20, 38);
+
+      doc.setFont("Inter", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Teacher ID: ${currentUser.teacher_id || 'N/A'}`, 20, 46);
+      doc.text(`Department: ${currentUser.department || 'General'}`, 20, 53);
+
+      doc.text(`Role: ${currentUser.role || 'Junior'} Supervisor`, 110, 46);
+      doc.text(`Institutional Email: ${currentUser.identifier || 'N/A'}`, 110, 53);
+
+      // Duty Table Data
+      const sortedHistory = [...currentUser.history].sort((a, b) => parseCustomDate(a.exam_date) - parseCustomDate(b.exam_date));
+      const tableRows = sortedHistory.map((d, index) => [
+        index + 1,
+        d.exam_date || 'TBD',
+        `Slot ${d.slot_id || d.slot || '1'}`,
+        d.session || 'TBD',
+        d.course_id || 'ALL',
+        d.room_assigned || d.room || 'TBD',
+        d.role_assigned || d.role || 'Junior',
+        d.assigned_at ? new Date(d.assigned_at).toLocaleDateString() : 'Confirmed'
+      ]);
+
+      doc.autoTable({
+        head: [["#", "Exam Date", "Slot", "Session", "Course", "Allocated Hall", "Role", "Date Confirmed"]],
+        body: tableRows,
+        startY: 66,
+        margin: { left: 14, right: 14 },
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 3.5,
+          font: "helvetica",
+          textColor: [51, 65, 85],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1
+        },
+        headStyles: {
+          fillColor: [99, 102, 241],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          1: { halign: 'center', fontStyle: 'bold' },
+          2: { halign: 'center' },
+          3: { halign: 'center' },
+          4: { halign: 'center' },
+          5: { halign: 'center', fontStyle: 'bold' },
+          6: { halign: 'center' },
+          7: { halign: 'center' }
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        }
+      });
+
+      const finalY = doc.lastAutoTable.finalY + 10;
+
+      // Instructions
+      doc.setFont("Inter", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Examination Supervision Guidelines:", 14, finalY);
+
+      doc.setFont("Inter", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("1. All supervisors must report to the Exam Control Room at least 30 minutes prior to the start.", 14, finalY + 6);
+      doc.text("2. Collect question papers, attendance sheets, and answer books from the Chief Conductor.", 14, finalY + 11);
+      doc.text("3. Any duty swap or adjustment must be approved via the Examination Portal prior to the examination.", 14, finalY + 16);
+      doc.text("4. Verify candidate hall tickets, student IDs, and seal answer papers immediately upon conclusion.", 14, finalY + 21);
+
+      // Signatures
+      doc.setFont("Inter", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text("Faculty Member Signature", 24, finalY + 44);
+      doc.text("Examination Coordinator / CEO", 130, finalY + 44);
+
+      doc.setDrawColor(148, 163, 184);
+      doc.line(20, finalY + 38, 75, finalY + 38);
+      doc.line(125, finalY + 38, 190, finalY + 38);
+
+      // Footer timestamp
+      doc.setFont("Inter", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Generated on ${new Date().toLocaleString()} | PICT Central Examination System`, 14, 288);
+
+      const cleanId = (currentUser.teacher_id || 'faculty').replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`PICT_Duty_Slip_${cleanId}.pdf`);
+    }
+
+    function exportTeacherDutiesCSV() {
+      if (!currentUser || !currentUser.history || currentUser.history.length === 0) {
+        alert("No duties scheduled on record to export.");
+        return;
+      }
+
+      const rows = [
+        ['Teacher ID', 'Supervisor Name', 'Exam Date', 'Slot', 'Session', 'Course ID', 'Room Assigned', 'Role', 'Assigned At'],
+        ...currentUser.history.map(d => [
+          currentUser.teacher_id || '',
+          `"${currentUser.name || ''}"`,
+          d.exam_date || '',
+          d.slot_id || d.slot || '',
+          d.session || 'TBD',
+          d.course_id || 'ALL',
+          `"${d.room_assigned || d.room || 'TBD'}"`,
+          d.role_assigned || d.role || 'Junior',
+          `"${d.assigned_at || 'N/A'}"`
+        ])
+      ];
+
+      const csvContent = rows.map(r => r.join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })),
+        download: `PICT_Duties_${currentUser.teacher_id || 'faculty'}.csv`
+      });
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
 
     function showDashboard(user) {
+      currentUser = user;
+      document.getElementById('landingPage').style.display = 'none';
       if (user.is_admin) {
         document.getElementById('loginPage').style.display = 'none';
         document.getElementById('uploadPage').style.display = 'block';
@@ -851,15 +1354,15 @@
         document.getElementById('teacherAvatar').textContent = user.name.charAt(0).toUpperCase();
 
         const upcomingBody = document.getElementById('teacherUpcomingBody');
-        const pastBody     = document.getElementById('teacherPastBody');
+        const pastBody = document.getElementById('teacherPastBody');
         upcomingBody.innerHTML = '';
-        pastBody.innerHTML     = '';
+        pastBody.innerHTML = '';
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const upcoming = [];
-        const past     = [];
+        const past = [];
 
         if (user.history && user.history.length > 0) {
           user.history.forEach(d => {
@@ -882,7 +1385,7 @@
           const tr = document.createElement('tr');
           tr.className = 'ri';
           const assignedDate = d.assigned_at ? new Date(d.assigned_at).toLocaleString() : 'N/A';
-          
+
           let actionHtml = '';
           if (isUpcoming) {
             actionHtml = `
@@ -894,11 +1397,11 @@
               </td>
             `;
           }
-          
+
           const session = d.session || 'TBD';
           const courseId = d.course_id || 'ALL';
           const room = d.room_assigned || d.room || 'TBD';
-          
+
           tr.innerHTML = `
             <td><span class="mbadge">Slot ${d.slot_id}</span></td>
             <td>${d.exam_date}</td>
@@ -927,7 +1430,7 @@
     }
 
     function checkConfirmedTimetable() {
-      fetch('http://127.0.0.1:5000/confirmed_timetable')
+      fetch('/confirmed_timetable')
         .then(async r => {
           const data = await r.json();
           if (data) {
@@ -935,7 +1438,7 @@
             render(G);
             document.getElementById('uploadPage').style.display = 'none';
             document.getElementById('resultsPage').style.display = 'block';
-            
+
             const confirmBtn = document.getElementById('confirmBtn');
             if (confirmBtn) {
               confirmBtn.innerHTML = '<span>Published Successfully ✓</span>';
@@ -949,24 +1452,54 @@
         });
     }
 
-    function logout() {
-      localStorage.removeItem('user');
+    async function logout() {
+      try {
+        await fetch('/logout', { method: 'POST' });
+      } catch (_) {
+        // The server-side session may already be gone; continue locally.
+      }
+
+      currentUser = null;
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('teacherPage').style.display = 'none';
       document.getElementById('resultsPage').style.display = 'none';
-      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('loginPage').style.display = 'none';
       document.getElementById('emailInput').value = '';
       document.getElementById('passwordInput').value = '';
       document.getElementById('loginError').textContent = '';
+      goHome();
     }
 
-    // On page load check session
-    window.addEventListener('DOMContentLoaded', () => {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (user) {
-        showDashboard(user);
+    window.addEventListener('popstate', (event) => {
+      if (currentUser) {
+        showDashboard(currentUser);
+        return;
+      }
+      if (event.state && event.state.page === 'auth') {
+        showAuth(event.state.role || 'coordinator', false);
       } else {
-        logout();
+        renderHome();
+      }
+    });
+
+    // Restore theme and server-side authentication on page load.
+    window.addEventListener('DOMContentLoaded', async () => {
+      initializeTheme();
+      window.history.replaceState({ page: 'landing' }, '', window.location.href);
+
+      try {
+        const response = await fetch('/session');
+        const data = await response.json();
+
+        if (data.authenticated) {
+          currentUser = data;
+          showDashboard(data);
+        } else {
+          goHome();
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+        goHome();
       }
     });
 
@@ -983,8 +1516,13 @@
       document.getElementById('uploadCard').classList.add('disabled');
       document.getElementById('uzone').classList.add('disabled');
       document.getElementById('fileInput').disabled = true;
+      if (document.getElementById('prefUzone')) {
+        document.getElementById('prefUzone').classList.add('disabled');
+        document.getElementById('prefFileInput').disabled = true;
+      }
       selectedSlots.clear();
       clearFile();
+      clearPrefFile();
     }
 
     function step1() {
@@ -1014,13 +1552,40 @@
     }
 
     function step3() {
+      // When exam type changes, just update the slot list.
+      // The upload zone is enabled only when both type AND start date are provided.
       const type = document.getElementById('examTypeSelect').value;
       if (type) {
         document.getElementById('slotList').classList.remove('disabled');
         updateSlots();
+      }
+      step3Check();
+    }
+
+    function step3Check() {
+      // Enable upload zone only when exam type AND start date are both provided
+      const type = document.getElementById('examTypeSelect').value;
+      const startDate = document.getElementById('examStartDate').value;
+      if (type && startDate) {
         document.getElementById('uploadCard').classList.remove('disabled');
         document.getElementById('uzone').classList.remove('disabled');
         document.getElementById('fileInput').disabled = false;
+        if (document.getElementById('prefUzone')) {
+          document.getElementById('prefUzone').classList.remove('disabled');
+          document.getElementById('prefFileInput').disabled = false;
+        }
+      } else {
+        document.getElementById('uploadCard').classList.add('disabled');
+        document.getElementById('uzone').classList.add('disabled');
+        document.getElementById('fileInput').disabled = true;
+        if (document.getElementById('prefUzone')) {
+          document.getElementById('prefUzone').classList.add('disabled');
+          document.getElementById('prefFileInput').disabled = true;
+        }
+        if (type) {
+          document.getElementById('slotList').classList.remove('disabled');
+          updateSlots();
+        }
       }
     }
 
@@ -1029,8 +1594,8 @@
         if (!confirm("This will clear the currently published schedule from the database. Are you sure you want to create a new schedule?")) {
           return;
         }
-        
-        fetch('http://127.0.0.1:5000/clear_confirmed_timetable', { method: 'POST' })
+
+        fetch('/clear_confirmed_timetable', { method: 'POST' })
           .then(r => r.json())
           .then(d => {
             if (d.success) {
@@ -1082,25 +1647,33 @@
     }
 
     let G = null;
-    // exam dates are provided in the uploaded Excel; no client-side start date
     function generate() {
       const f = fi.files[0]; if (!f) return;
       const year = document.getElementById('yearSelect').value;
       const branch = document.getElementById('branchSelect').value;
       const examType = document.getElementById('examTypeSelect').value;
+      const examStartDate = document.getElementById('examStartDate').value;
+
+      if (!examStartDate) {
+        alert('Please select an Exam Start Date before generating the timetable.');
+        return;
+      }
 
       document.getElementById('loadScreen').style.display = 'flex';
       const iv = startLoad();
 
       const fd = new FormData();
       fd.append('file', f);
+      if (prefFi && prefFi.files[0]) {
+        fd.append('preferences_file', prefFi.files[0]);
+      }
       fd.append('year', year);
       fd.append('branch', branch);
       fd.append('exam_type', examType);
-      // Note: selected slots/date are handled server-side now; do not send start_date
       fd.append('selected_slots', Array.from(selectedSlots).join(','));
+      fd.append('start_date', examStartDate); // Send start date to backend
 
-      fetch('http://127.0.0.1:5000/generate', { method: 'POST', body: fd })
+      fetch('/generate', { method: 'POST', body: fd })
         .then(async r => {
           const data = await r.json();
           if (!r.ok) throw new Error(data.error || 'Server error');
@@ -1108,7 +1681,7 @@
         })
         .then(d => {
           G = d;
-          
+
           // Reset confirm button state for newly generated timetable
           const confirmBtn = document.getElementById('confirmBtn');
           if (confirmBtn) {
@@ -1119,11 +1692,10 @@
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              Confirm & Publish
+              Confirm &amp; Publish
             `;
           }
 
-          // Dates come from the Excel upload; no client-side start date stored
           setTimeout(() => {
             render(d);
             document.getElementById('loadScreen').style.display = 'none';
@@ -1341,7 +1913,7 @@
       btn.disabled = true;
       btn.innerHTML = '<span>Publishing...</span>';
 
-      fetch('http://127.0.0.1:5000/confirm', {
+      fetch('/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1376,9 +1948,9 @@
 
     function submitChangePassword() {
       const current = document.getElementById('cpCurrent').value;
-      const newPw   = document.getElementById('cpNew').value;
+      const newPw = document.getElementById('cpNew').value;
       const confirm = document.getElementById('cpConfirm').value;
-      const msg     = document.getElementById('cpMsg');
+      const msg = document.getElementById('cpMsg');
 
       msg.textContent = '';
       msg.style.color = '';
@@ -1399,8 +1971,7 @@
         return;
       }
 
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const identifier = user.identifier || '';
+      const identifier = currentUser?.identifier || '';
       if (!identifier) {
         msg.textContent = 'Session error — please log out and log in again.';
         msg.style.color = '#f87171';
@@ -1435,18 +2006,18 @@
       document.getElementById('adjSlot').value = slot_id;
       document.getElementById('adjDate').value = exam_date;
       document.getElementById('adjRole').value = role;
-      
+
       document.getElementById('modalDutyDetails').innerHTML = `
         <strong>Date:</strong> ${exam_date} &nbsp;|&nbsp; 
         <strong>Slot:</strong> ${slot_id} &nbsp;|&nbsp; 
         <strong>Role:</strong> ${role}
       `;
-      
+
       document.getElementById('modalFile').value = '';
       document.getElementById('modalFileStatus').textContent = 'Drag & drop or click to browse';
       document.getElementById('adjReason').value = '';
       document.getElementById('modalError').textContent = '';
-      
+
       document.getElementById('adjustmentModal').style.display = 'flex';
     }
 
@@ -1465,17 +2036,16 @@
       e.preventDefault();
       const err = document.getElementById('modalError');
       err.textContent = '';
-      
+
       const fileInput = document.getElementById('modalFile');
       const f = fileInput.files[0];
       if (!f) {
         err.textContent = 'Please select an application file to upload.';
         return;
       }
-      
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const teacher_id = user.identifier || '';
-      
+
+      const teacher_id = currentUser?.identifier || '';
+
       const fd = new FormData();
       fd.append('file', f);
       fd.append('teacher_id', teacher_id);
@@ -1483,45 +2053,45 @@
       fd.append('current_slot', document.getElementById('adjSlot').value);
       fd.append('current_session', document.getElementById('adjRole').value === 'Senior' ? 'Morning' : 'Afternoon');
       fd.append('reason', document.getElementById('adjReason').value.trim());
-      
+
       const btn = e.target.querySelector('button[type="submit"]');
       const originalText = btn.innerHTML;
       btn.disabled = true;
       btn.innerHTML = '<span>Submitting...</span>';
-      
+
       fetch('/request_adjustment', {
         method: 'POST',
         body: fd
       })
-      .then(async r => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || 'Submission failed');
-        return d;
-      })
-      .then(d => {
-        alert(d.message);
-        closeAdjustmentModal();
-        refreshTeacherDuties(teacher_id);
-      })
-      .catch(error => {
-        err.textContent = error.message;
-      })
-      .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      });
+        .then(async r => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Submission failed');
+          return d;
+        })
+        .then(d => {
+          alert(d.message);
+          closeAdjustmentModal();
+          refreshTeacherDuties(teacher_id);
+        })
+        .catch(error => {
+          err.textContent = error.message;
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        });
     }
 
     function refreshTeacherDuties(identifier) {
       fetch('/teacher/status?identifier=' + encodeURIComponent(identifier))
-      .then(r => r.json())
-      .then(user => {
-        localStorage.setItem('user', JSON.stringify(user));
-        showDashboard(user);
-      })
-      .catch(err => {
-        console.error('Error refreshing teacher dashboard:', err);
-      });
+        .then(r => r.json())
+        .then(user => {
+          currentUser = user;
+          showDashboard(user);
+        })
+        .catch(err => {
+          console.error('Error refreshing teacher dashboard:', err);
+        });
     }
 
     let activeRescheduleTab = 'swap';
@@ -1562,11 +2132,11 @@
           data.forEach(r => {
             const tr = document.createElement('tr');
             tr.className = 'ri';
-            
+
             const fileLink = r.file_path ? `<a href="/uploads/${r.file_path}" target="_blank" class="ulink" style="font-weight:600;">View File 📄</a>` : 'No file';
             const commentsText = r.comments ? `<br><small style="color:var(--txt-dim)">Note: ${r.comments}</small>` : '';
             const statusChip = `<span class="stag" style="background:${r.status === 'Pending' ? 'rgba(245,158,11,.1)' : r.status === 'Approved' ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.1)'}; color:${r.status === 'Pending' ? '#d97706' : r.status === 'Approved' ? '#10b981' : '#ef4444'}; font-weight:700;">${r.status}</span>${commentsText}`;
-            
+
             let actionHtml = '—';
             if (r.status === 'Pending') {
               actionHtml = `
@@ -1580,7 +2150,7 @@
                 </div>
               `;
             }
-            
+
             tr.innerHTML = `
               <td>
                 <strong>${r.teacher_name}</strong><br>
@@ -1616,7 +2186,7 @@
       document.getElementById('moveSlotSelect').innerHTML = '<option value="" disabled selected>Loading conflict-free slots...</option>';
       document.getElementById('swapPreferenceMatchNote').textContent = '';
       document.getElementById('coordinatorModalError').textContent = '';
-      
+
       switchRescheduleTab('swap');
       document.getElementById('coordinatorApprovalModal').style.display = 'flex';
 
@@ -1647,7 +2217,7 @@
         tSwap.style.color = 'var(--txt-main)';
         tSwap.style.fontWeight = '600';
         tSwap.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        
+
         tMove.style.background = 'transparent';
         tMove.style.color = 'var(--txt-dim)';
         tMove.style.fontWeight = '500';
@@ -1660,7 +2230,7 @@
         tMove.style.color = 'var(--txt-main)';
         tMove.style.fontWeight = '600';
         tMove.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        
+
         tSwap.style.background = 'transparent';
         tSwap.style.color = 'var(--txt-dim)';
         tSwap.style.fontWeight = '500';
@@ -1708,7 +2278,7 @@
       if (!currentAlternatives || select.value === "") return;
       const opt = currentAlternatives.swap_options[parseInt(select.value, 10)];
       const note = document.getElementById('swapPreferenceMatchNote');
-      
+
       let text = '';
       if (opt.requester_preferred && opt.partner_preferred) {
         text = '✓ Perfect Match! Requester prefers Target Slot, and Partner prefers Current Slot.';
@@ -1729,9 +2299,9 @@
 
       const reqId = document.getElementById('coordRequestID').value;
       const type = activeRescheduleTab;
-      
+
       let payload = { request_id: reqId, type: type };
-      
+
       if (type === 'swap') {
         const select = document.getElementById('swapPartnerSelect');
         if (select.value === "") {
@@ -1763,23 +2333,23 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      .then(async r => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || 'Rescheduling failed');
-        return d;
-      })
-      .then(d => {
-        alert(d.message);
-        closeCoordinatorApprovalModal();
-        loadAdjustments();
-      })
-      .catch(error => {
-        err.textContent = error.message;
-      })
-      .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      });
+        .then(async r => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Rescheduling failed');
+          return d;
+        })
+        .then(d => {
+          alert(d.message);
+          closeCoordinatorApprovalModal();
+          loadAdjustments();
+        })
+        .catch(error => {
+          err.textContent = error.message;
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        });
     }
 
     function openCoordinatorRejectionModal(reqId) {
@@ -1811,23 +2381,23 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ request_id: reqId, comments: comments })
       })
-      .then(async r => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || 'Rejection failed');
-        return d;
-      })
-      .then(d => {
-        alert(d.message);
-        closeCoordinatorRejectionModal();
-        loadAdjustments();
-      })
-      .catch(error => {
-        err.textContent = error.message;
-      })
-      .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      });
+        .then(async r => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || 'Rejection failed');
+          return d;
+        })
+        .then(d => {
+          alert(d.message);
+          closeCoordinatorRejectionModal();
+          loadAdjustments();
+        })
+        .catch(error => {
+          err.textContent = error.message;
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        });
     }
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -1860,39 +2430,54 @@
   </script>
 
   <!-- ADJUSTMENT REQUEST MODAL -->
-  <div id="adjustmentModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
-    <div class="auth-card" style="max-width:500px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0;">
-      <button onclick="closeAdjustmentModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+  <div id="adjustmentModal" class="modal-backdrop"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card"
+      style="max-width:500px; padding:32px; position:relative; border-radius:24px;">
+      <button onclick="closeAdjustmentModal()"
+        style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
       <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
-        <h3 style="font-family:var(--inter); font-size:24px; color:#1e293b; margin-bottom:8px;">Request Duty Change</h3>
-        <p style="color:var(--txt-dim); font-size:14px;">Submit an application for duty date/slot change in case of emergency.</p>
+        <h3 style="font-family:var(--inter); font-size:24px; color:var(--txt-main); margin-bottom:8px;">Request Duty Change</h3>
+        <p style="color:var(--txt-dim); font-size:14px;">Submit an application for duty date/slot change in case of
+          emergency.</p>
       </div>
-      <div id="modalDutyDetails" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
+      <div id="modalDutyDetails"
+        style="background:var(--input-bg, #f8fafc); border:1px solid var(--border); border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
         <!-- Filled dynamically -->
       </div>
       <form id="adjustmentForm" onsubmit="submitAdjustmentRequest(event)">
         <input type="hidden" id="adjSlot" name="current_slot">
         <input type="hidden" id="adjDate" name="current_date">
         <input type="hidden" id="adjRole" name="current_role">
-        
+
         <div class="input-group">
-          <label for="adjReason" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Reason for Request</label>
-          <textarea id="adjReason" placeholder="Explain the emergency or reason for date change request..." required style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-family:var(--inter); font-size:14px; background:#f8fafc; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--acc-ind)'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+          <label for="adjReason"
+            style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">Reason for
+            Request</label>
+          <textarea id="adjReason" placeholder="Explain the emergency or reason for date change request..." required
+            style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid var(--border); font-family:var(--inter); font-size:14px; outline:none; transition:border-color 0.2s;"></textarea>
         </div>
-        
+
         <div class="input-group">
-          <label style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Upload Application File (PDF, Images, DOCX)</label>
-          <div id="modalUzone" style="border:2px dashed #e2e8f0; border-radius:16px; padding:24px 16px; text-align:center; cursor:pointer; background:#fbfcfd; transition:border-color 0.2s;" onclick="document.getElementById('modalFile').click()">
+          <label style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">Upload
+            Application File (PDF, Images, DOCX)</label>
+          <div id="modalUzone" class="uzone"
+            style="padding:24px 16px; text-align:center; cursor:pointer;"
+            onclick="document.getElementById('modalFile').click()">
             <div style="font-size:24px; margin-bottom:8px;">📁</div>
-            <p style="font-size:13px; font-weight:600; color:var(--txt-main);" id="modalFileStatus">Drag & drop or click to browse</p>
+            <p style="font-size:13px; font-weight:600; color:var(--txt-main);" id="modalFileStatus">Drag & drop or click
+              to browse</p>
             <p style="font-size:11px; color:var(--txt-dim); margin-top:4px;">Max size 5MB. PDF, PNG, JPG, JPEG, DOCX</p>
-            <input type="file" id="modalFile" required accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx" style="display:none;" onchange="handleModalFileSelect(this)">
+            <input type="file" id="modalFile" required accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx"
+              style="display:none;" onchange="handleModalFileSelect(this)">
           </div>
         </div>
-        
-        <span id="modalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
-        
-        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
+
+        <span id="modalError" class="error-msg"
+          style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+
+        <button type="submit" class="cta w-full"
+          style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
           <span>Submit Request</span>
         </button>
       </form>
@@ -1900,50 +2485,69 @@
   </div>
 
   <!-- COORDINATOR APPROVAL MODAL -->
-  <div id="coordinatorApprovalModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
-    <div class="auth-card" style="max-width:550px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
-      <button onclick="closeCoordinatorApprovalModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+  <div id="coordinatorApprovalModal" class="modal-backdrop"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card"
+      style="max-width:550px; padding:32px; position:relative; border-radius:24px; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
+      <button onclick="closeCoordinatorApprovalModal()"
+        style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
       <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
-        <h3 style="font-family:var(--inter); font-size:24px; color:#1e293b; margin-bottom:8px;">Approve Duty Change</h3>
+        <h3 style="font-family:var(--inter); font-size:24px; color:var(--txt-main); margin-bottom:8px;">Approve Duty Change</h3>
         <p style="color:var(--txt-dim); font-size:14px;">Select how you want to reschedule this supervisor's duty.</p>
       </div>
-      <div id="coordinatorModalDutyDetails" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
+      <div id="coordinatorModalDutyDetails"
+        style="background:var(--input-bg, #f8fafc); border:1px solid var(--border); border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:14px; color:var(--txt-main);">
         <!-- Filled dynamically -->
       </div>
-      
+
       <!-- RESCHEDULE TYPE TABS -->
-      <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 12px; border: 1px solid #e2e8f0;">
-        <button id="rescheduleTabSwap" class="auth-tab" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: var(--surface); font-weight: 600; color: var(--txt-main); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onclick="switchRescheduleTab('swap')">
+      <div class="auth-tabs"
+        style="display: flex; gap: 0.5rem; margin-bottom: 20px; background: var(--panel, #f1f5f9); padding: 4px; border-radius: 12px; border: 1px solid var(--border);">
+        <button id="rescheduleTabSwap" class="auth-tab"
+          style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: var(--surface); font-weight: 600; color: var(--txt-main); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"
+          onclick="switchRescheduleTab('swap')">
           Swap with Peer
         </button>
-        <button id="rescheduleTabMove" class="auth-tab" style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: transparent; font-weight: 500; color: var(--txt-dim); transition: all 0.2s;" onclick="switchRescheduleTab('move')">
+        <button id="rescheduleTabMove" class="auth-tab"
+          style="flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: transparent; font-weight: 500; color: var(--txt-dim); transition: all 0.2s;"
+          onclick="switchRescheduleTab('move')">
           Move to Free Slot
         </button>
       </div>
-      
+
       <form id="coordinatorApprovalForm" onsubmit="submitCoordinatorApproval(event)">
         <input type="hidden" id="coordRequestID">
-        
+
         <!-- SWAP SELECTOR -->
         <div id="swapSelectorContainer" class="input-group">
-          <label for="swapPartnerSelect" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Recommended Swaps (Ranked by Preference Match)</label>
-          <select id="swapPartnerSelect" style="width:100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px;" onchange="handleSwapPartnerSelectChange(this)">
+          <label for="swapPartnerSelect"
+            style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">Recommended Swaps
+            (Ranked by Preference Match)</label>
+          <select id="swapPartnerSelect"
+            style="width:100%; border-radius: 14px; padding: 14px 18px;"
+            onchange="handleSwapPartnerSelectChange(this)">
             <option value="" disabled selected>Loading recommended swaps...</option>
           </select>
-          <span id="swapPreferenceMatchNote" style="font-size:.75rem; color:#10b981; margin-top:.5rem; display:block; font-weight:600;"></span>
+          <span id="swapPreferenceMatchNote"
+            style="font-size:.75rem; color:#10b981; margin-top:.5rem; display:block; font-weight:600;"></span>
         </div>
-        
+
         <!-- MOVE SELECTOR -->
         <div id="moveSelectorContainer" class="input-group" style="display:none;">
-          <label for="moveSlotSelect" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Available Conflict-Free Slots</label>
-          <select id="moveSlotSelect" style="width:100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 18px;">
+          <label for="moveSlotSelect"
+            style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">Available
+            Conflict-Free Slots</label>
+          <select id="moveSlotSelect"
+            style="width:100%; border-radius: 14px; padding: 14px 18px;">
             <option value="" disabled selected>Loading conflict-free slots...</option>
           </select>
         </div>
-        
-        <span id="coordinatorModalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
-        
-        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
+
+        <span id="coordinatorModalError" class="error-msg"
+          style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+
+        <button type="submit" class="cta w-full"
+          style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, var(--acc-ind), var(--acc-vio)); color:#fff; border:none; cursor:pointer;">
           <span>Confirm & Reschedule</span>
         </button>
       </form>
@@ -1951,24 +2555,32 @@
   </div>
 
   <!-- COORDINATOR REJECTION MODAL -->
-  <div id="coordinatorRejectionModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
-    <div class="auth-card" style="max-width:450px; padding:32px; position:relative; border-radius:24px; background:#fff; border:1px solid #e2e8f0; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
-      <button onclick="closeCoordinatorRejectionModal()" style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
+  <div id="coordinatorRejectionModal" class="modal-backdrop"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:200; align-items:center; justify-content:center;">
+    <div class="auth-card"
+      style="max-width:450px; padding:32px; position:relative; border-radius:24px; display:block; box-shadow: 0 25px 60px -15px rgba(0,0,0,0.15);">
+      <button onclick="closeCoordinatorRejectionModal()"
+        style="position:absolute; top:20px; right:20px; background:none; border:none; cursor:pointer; color:var(--txt-dim); font-size:1.5rem; font-weight:bold;">×</button>
       <div class="auth-header" style="margin-bottom:20px; display:block; text-align:left;">
         <h3 style="font-family:var(--inter); font-size:24px; color:#ef4444; margin-bottom:8px;">Reject Request</h3>
         <p style="color:var(--txt-dim); font-size:14px;">Enter the reason why this change request is being rejected.</p>
       </div>
       <form id="coordinatorRejectionForm" onsubmit="submitCoordinatorRejection(event)">
         <input type="hidden" id="coordRejectRequestID">
-        
+
         <div class="input-group">
-          <label for="coordRejectComments" style="font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; display:block;">Rejection Comments / Feedback</label>
-          <textarea id="coordRejectComments" placeholder="Provide feedback to the supervisor..." required style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-family:var(--inter); font-size:14px; background:#f8fafc; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'" onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"></textarea>
+          <label for="coordRejectComments"
+            style="font-size:13px; font-weight:700; margin-bottom:8px; display:block;">Rejection Comments
+            / Feedback</label>
+          <textarea id="coordRejectComments" placeholder="Provide feedback to the supervisor..." required
+            style="width:100%; min-height:80px; padding:12px; border-radius:12px; border:1px solid var(--border); font-family:var(--inter); font-size:14px; outline:none; transition:border-color 0.2s;"></textarea>
         </div>
-        
-        <span id="coordinatorRejectModalError" class="error-msg" style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
-        
-        <button type="submit" class="cta w-full" style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, #ef4444, #b91c1c); color:#fff; border:none; cursor:pointer; box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);">
+
+        <span id="coordinatorRejectModalError" class="error-msg"
+          style="margin-bottom:12px; display:block; color:#ef4444; font-size:13px;"></span>
+
+        <button type="submit" class="cta w-full"
+          style="padding:14px; border-radius:12px; font-weight:700; background:linear-gradient(135deg, #ef4444, #b91c1c); color:#fff; border:none; cursor:pointer; box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.3);">
           <span>Confirm Rejection</span>
         </button>
       </form>

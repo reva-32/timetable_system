@@ -63,18 +63,6 @@ def build_conflict_graph(student_courses, all_courses=None):
                 graph[c2].add(c1)
     return graph
 
-    # No all_courses supplied: discover nodes from student_courses
-    for courses in student_courses.values():
-        for course in courses:
-            if course not in graph:
-                graph[course] = set()
-    for courses in student_courses.values():
-        for c1, c2 in combinations(set(courses), 2):
-            if c1 in graph and c2 in graph:
-                graph[c1].add(c2)
-                graph[c2].add(c1)
-    return graph
-
 
 def dsatur_coloring(graph):
     """
@@ -154,17 +142,17 @@ def safe_str(val, default="N/A"):
 
 def safe_id(val, default="N/A"):
     """
-    Safely convert numeric IDs (int or float) to clean strings.
-    Prevents '1.0' vs '1' mismatch.
+    Safely convert IDs to clean strings while preserving leading zeros (e.g., '001').
+    Strips trailing '.0' from float conversions.
     """
     if pd.isna(val) if not isinstance(val, str) else False:
         return default
-    try:
-        # Strip .0 by casting to int
-        return str(int(float(val)))
-    except (ValueError, TypeError):
-        s = str(val).strip()
-        return s if s and s.lower() not in ("nan", "none", "") else default
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none", ""):
+        return default
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
 
 
 def load_data(filepath):
@@ -322,20 +310,83 @@ def allocate_rooms(final_data, rooms):
 # STAGE 3 — TEACHER ASSIGNMENT
 # ================================================
 
-def load_teacher_data(filepath):
+def load_teacher_data(filepath, preferences_filepath=None):
+    """
+    Loads teacher profiles and slot preferences from:
+    1. The 'Teachers' sheet (columns: teacher_id, name, role, department, preferred_slots)
+    2. An optional 'Preferences' sheet in the same workbook
+    3. An optional standalone preferences CSV / Excel file
+    """
     df_teachers = pd.read_excel(filepath, sheet_name="Teachers")
-    # Preferences sheet deprecated: preferences ignored; use empty preferred_slots
-    pref_map = {}
     teachers = {}
     for _, row in df_teachers.iterrows():
         t_id = safe_id(row["teacher_id"])
+        
+        # Parse preferred_slots if present directly in Teachers sheet
+        raw_prefs = row.get("preferred_slots") or row.get("preferences") or ""
+        preferred_slots = set()
+        if pd.notna(raw_prefs):
+            try:
+                for p in str(raw_prefs).split(","):
+                    p_str = p.strip()
+                    if p_str:
+                        try:
+                            preferred_slots.add(int(p_str))
+                        except ValueError:
+                            preferred_slots.add(p_str)
+            except Exception:
+                pass
+
         teachers[t_id] = {
             "id": t_id,
             "name": safe_str(row["name"]),
             "role": safe_str(row["role"]),
             "department": safe_str(row.get("department", "General")),
-            "preferred_slots": set()
+            "preferred_slots": preferred_slots
         }
+
+    # Check for 'Preferences' sheet in the main Excel workbook
+    try:
+        df_prefs = pd.read_excel(filepath, sheet_name="Preferences")
+        for _, row in df_prefs.iterrows():
+            t_id = safe_id(row.get("teacher_id") or row.get("id"))
+            if t_id in teachers:
+                slot_val = row.get("slot_id") or row.get("slot") or row.get("preferred_slots") or row.get("preferences")
+                if pd.notna(slot_val):
+                    for p in str(slot_val).split(","):
+                        p_str = p.strip()
+                        if p_str:
+                            try:
+                                teachers[t_id]["preferred_slots"].add(int(p_str))
+                            except ValueError:
+                                teachers[t_id]["preferred_slots"].add(p_str)
+    except Exception:
+        pass
+
+    # Check for separate uploaded preferences CSV / Excel file
+    if preferences_filepath and os.path.exists(preferences_filepath):
+        try:
+            if preferences_filepath.endswith(".csv"):
+                df_pref_ext = pd.read_csv(preferences_filepath)
+            else:
+                df_pref_ext = pd.read_excel(preferences_filepath)
+
+            for _, row in df_pref_ext.iterrows():
+                t_id = safe_id(row.get("teacher_id") or row.get("id"))
+                if t_id in teachers:
+                    slot_val = row.get("preferred_slots") or row.get("slot_id") or row.get("slot") or row.get("preferences")
+                    if pd.notna(slot_val):
+                        for p in str(slot_val).split(","):
+                            p_str = p.strip()
+                            if p_str:
+                                try:
+                                    teachers[t_id]["preferred_slots"].add(int(p_str))
+                                except ValueError:
+                                    teachers[t_id]["preferred_slots"].add(p_str)
+            print(f"Loaded external preferences from {preferences_filepath} successfully.")
+        except Exception as pref_err:
+            print(f"Warning: Could not load external preferences file: {pref_err}")
+
     return teachers
 
 
@@ -398,7 +449,7 @@ def compute_cost(teacher, duty, teacher_duty_count, fairness_map=None, db_duty_c
         if not fairness_map.get(teacher["id"], True): cost = 0.5
         else: cost = 5
     
-    if duty["slot"] in teacher.get("preferred_slots", set()):
+    if duty["slot"] in teacher.get("preferred_slots", set()) or str(duty["slot"]) in [str(p) for p in teacher.get("preferred_slots", set())]:
         cost = min(cost, 1)
     
     # Penalty of 100 * total_duty_count to load-balance
@@ -408,7 +459,7 @@ def compute_cost(teacher, duty, teacher_duty_count, fairness_map=None, db_duty_c
 
 def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MAX_DUTIES=5):
     """
-    Improved teacher assignment using role-batching and replication to handle MAX_DUTIES.
+    Improved teacher assignment using role-batching and Hungarian matching with greedy fill fallback.
     """
     INF = 10_000
     assignments = []
@@ -470,8 +521,8 @@ def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MA
             teacher = expanded_teachers[r]
             duty = role_duties[c]
 
-            # Collision check: same teacher, same slot
-            if any(a["teacher_id"] == teacher["id"] and a["slot"] == duty["slot"] for a in assignments):
+            # Collision check: same teacher, same slot & date
+            if any(a["teacher_id"] == teacher["id"] and a["slot"] == duty["slot"] and a.get("date") == duty.get("date") for a in assignments):
                 continue
 
             teacher_duty_count[teacher["id"]] += 1
@@ -483,6 +534,28 @@ def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MA
                 "role_required": duty["role_required"], "teacher_id": teacher["id"],
                 "teacher_name": teacher["name"], "cost": int(cost) if cost >= 1 else cost
             })
+
+        # Fallback pass for any unassigned duties in this role
+        unassigned_in_role = [d for d in role_duties if d["duty_id"] not in assigned_duty_ids]
+        for duty in unassigned_in_role:
+            # Find an eligible teacher free in that (date, slot) with least current duties
+            free_candidates = [
+                t for t in eligible_teachers
+                if not any(a["teacher_id"] == t["id"] and a["slot"] == duty["slot"] and a.get("date") == duty.get("date") for a in assignments)
+                and (teacher_duty_count[t["id"]] + (sum(db_duty_counts.get(t["id"], {}).values()) if db_duty_counts else 0)) < MAX_DUTIES
+            ]
+            if free_candidates:
+                # Pick teacher with lowest duties so far
+                best_t = min(free_candidates, key=lambda t: teacher_duty_count[t["id"]])
+                teacher_duty_count[best_t["id"]] += 1
+                assigned_duty_ids.add(duty["duty_id"])
+                assignments.append({
+                    "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
+                    "session": duty["session"], "course_id": duty["course_id"],
+                    "room": duty["room"],
+                    "role_required": duty["role_required"], "teacher_id": best_t["id"],
+                    "teacher_name": best_t["name"], "cost": 10
+                })
 
     unassigned = [d for d in duties if d["duty_id"] not in assigned_duty_ids]
     return assignments, unassigned, teacher_duty_count

@@ -1,0 +1,14 @@
+"""
+sample_teacher_preferences.csv — Sample CSV showing teacher duty slot preferences.
+"""
+teacher_id,name,preferred_slots,notes
+001,Prof. Aarav Sharma,"1, 2",Prefers Morning slots
+002,Dr. Bhavna Patil,"2, 3",Prefers Afternoon and Slot 3
+003,Prof. Chetan Kulkarni,"1, 4",Prefers Day 1 and Day 2 Morning
+004,Dr. Deepa Deshmukh,"2, 5",Prefers Afternoon slots
+005,Prof. Eshan Joshi,"1, 3",Prefers Morning sessions
+006,Dr. Fatima Shaikh,"2, 4",Prefers Day 2 slots
+007,Prof. Girish Mehta,"1, 2",Senior Control Room preference
+008,Dr. Hemlata Rao,"3, 5",Senior Supervisor preference
+009,Prof. Ishaan Verma,"1, 4",Squad Roaming preference
+010,Dr. Jayant Nambiar,"2, 6",Squad Roaming preference
