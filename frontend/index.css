@@ -734,7 +734,12 @@ nav {
   margin-top: 6px;
 }
 
-/* FIX RESULTS BAR COLLISION */
+#timetableView {
+  width: 100%;
+  padding: 32px;
+  animation: fadeIn 0.3s ease;
+}
+
 #resultsPage {
   padding: 100px 64px 80px;
   max-width: 1440px;
