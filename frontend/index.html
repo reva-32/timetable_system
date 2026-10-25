@@ -50,60 +50,60 @@
   </nav>
 
   <!-- LANDING PAGE -->
-  <section id="landingPage" class="landing-page" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:80px 20px 40px;">
-    <div style="text-align:center; margin-bottom:56px; max-width:560px;">
+  <section id="landingPage" class="landing-page">
+    <div class="landing-hero">
       <div class="landing-badge">PICT • Examination Management</div>
-      <h1 style="font-size:clamp(2.4rem,5vw,3.4rem); margin-top:16px; line-height:1.1;">Exam Timetable<br><span class="gt">Made Simple.</span></h1>
-      <p class="landing-copy" style="margin-top:18px; font-size:1.05rem;">
+      <h1>Exam Timetable<br><span class="gt">Made Simple.</span></h1>
+      <p class="landing-copy">
         Generate conflict-free examination schedules, allocate rooms,
         and manage faculty duties from one centralized portal.
       </p>
     </div>
 
-    <div style="display:flex; gap:28px; flex-wrap:wrap; justify-content:center; max-width:800px; width:100%;">
+    <div class="landing-portals">
       <!-- COORDINATOR CARD -->
-      <div class="auth-card" style="flex:1; min-width:280px; max-width:360px; padding:36px 32px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; display:block;" onclick="showAuth('coordinator')" onmouseover="this.style.transform='translateY(-6px)'" onmouseout="this.style.transform='translateY(0)'">
-        <div style="width:60px; height:60px; border-radius:18px; background:linear-gradient(135deg, #6366f1, #8b5cf6); display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow:0 8px 20px rgba(99,102,241,0.35);">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
+      <div class="auth-card landing-portal-card" onclick="showAuth('coordinator')">
+        <div class="landing-portal-icon coordinator">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
             <path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2Z"/>
           </svg>
         </div>
-        <h2 style="font-size:1.35rem; font-weight:700; margin-bottom:8px;">Coordinator Login</h2>
-        <p style="color:var(--txt-dim); font-size:0.9rem; line-height:1.6; margin-bottom:24px;">Access the timetable generator, upload exam data, and manage faculty duty assignments.</p>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Generate Timetable</span>
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Room Allocation</span>
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; font-weight:600;">Duty Management</span>
+        <h2>Coordinator Login</h2>
+        <p class="landing-portal-copy">Generate timetables, allocate rooms, and manage faculty duties.</p>
+        <div class="landing-portal-tags coordinator">
+          <span>Generate Timetable</span>
+          <span>Room Allocation</span>
+          <span>Duty Management</span>
         </div>
-        <button class="cta w-full" style="pointer-events:none;">
+        <button class="cta w-full" type="button">
           Sign In as Coordinator
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       </div>
 
       <!-- FACULTY CARD -->
-      <div class="auth-card" style="flex:1; min-width:280px; max-width:360px; padding:36px 32px; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s; display:block;" onclick="showAuth('faculty')" onmouseover="this.style.transform='translateY(-6px)'" onmouseout="this.style.transform='translateY(0)'">
-        <div style="width:60px; height:60px; border-radius:18px; background:linear-gradient(135deg, #06b6d4, #3b82f6); display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow:0 8px 20px rgba(6,182,212,0.35);">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
+      <div class="auth-card landing-portal-card" onclick="showAuth('faculty')">
+        <div class="landing-portal-icon faculty">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
         </div>
-        <h2 style="font-size:1.35rem; font-weight:700; margin-bottom:8px;">Faculty Portal</h2>
-        <p style="color:var(--txt-dim); font-size:0.9rem; line-height:1.6; margin-bottom:24px;">View your assigned exam duties, download duty slips, and request schedule adjustments.</p>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">View Duties</span>
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">Download Slip</span>
-          <span style="font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(6,182,212,0.1); color:#0891b2; font-weight:600;">Request Change</span>
+        <h2>Faculty Portal</h2>
+        <p class="landing-portal-copy">View assigned duties, download slips, and request schedule changes.</p>
+        <div class="landing-portal-tags faculty">
+          <span>View Duties</span>
+          <span>Download Slip</span>
+          <span>Request Change</span>
         </div>
-        <button class="cta w-full" style="background:linear-gradient(135deg,#06b6d4,#3b82f6); pointer-events:none;">
+        <button class="cta w-full faculty-cta" type="button">
           Login / Sign Up as Faculty
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
         </button>
       </div>
     </div>
 
-    <div class="landing-features" style="margin-top:48px; gap:24px;">
+    <div class="landing-features">
       <div><span>✓</span> Conflict-free scheduling</div>
       <div><span>✓</span> Room allocation</div>
       <div><span>✓</span> Faculty duty management</div>
@@ -227,15 +227,24 @@
             </svg>
             Generator
           </div>
-          <div class="d-nav-item" id="navTimetable" onclick="showAdminSection('timetable')">
+          <div class="d-nav-item" id="navMainTimetable" onclick="showAdminSection('main')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <span>Timetable</span>
-            <span id="navTimetableBadge" style="display:none; font-size:10px; padding:2px 7px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700; margin-left:auto;">Active</span>
+            <span>Main Timetable</span>
+            <span id="navMainTimetableBadge" style="display:none; font-size:10px; padding:2px 7px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700; margin-left:auto;">Active</span>
+          </div>
+          <div class="d-nav-item" id="navDetailedTimetable" onclick="showAdminSection('detailed')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span>Detailed Timetable</span>
           </div>
           <div class="d-nav-item" id="navAdjustments" onclick="showAdminSection('adjustments')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -261,6 +270,14 @@
         <div id="generatorView" class="dash-grid">
           <div class="dash-card">
             <h3>Exam Settings</h3>
+            <div class="input-group" style="margin-bottom:16px;">
+              <label>Generation Mode</label>
+              <select id="modeSelect" onchange="stepMode()">
+                <option value="multi" selected>All Departments (recommended)</option>
+                <option value="single">Single Department (legacy)</option>
+              </select>
+              <span class="input-help">All-departments mode creates one coordinated timetable and PDF for CE, ENTC, IT, AIDS and ECE.</span>
+            </div>
             <div class="form-grid">
               <div class="input-group">
                 <label>Academic Year</label>
@@ -300,7 +317,39 @@
             <div class="input-group mt-6">
               <label for="examStartDate">Exam Start Date</label>
               <input type="date" id="examStartDate" style="width:100%;" onchange="step3Check()">
-              <span class="input-help">First day of the examination period. Dates are auto-assigned from this date onward.</span>
+              <span class="input-help">First day of the examination period. The generated calendar always stays inside the selected range.</span>
+            </div>
+
+            <div class="input-group mt-6" id="endDateGroup">
+              <label for="examEndDate">Exam End Date</label>
+              <input type="date" id="examEndDate" style="width:100%;" onchange="step3Check()">
+              <span class="input-help">Last day of the examination period. Sundays are skipped. If the workbook's Slots sheet has enough dates inside this range, those dates are used; otherwise exams are spread across the range. The PDF shows the generated dates.</span>
+            </div>
+
+            <div id="legacyDutyControls">
+            <div class="input-group mt-6">
+              <label>Invigilation Demand (per date &amp; session)</label>
+              <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;">
+                <div>
+                  <label for="jsPerSession" style="font-size:11px; color:var(--txt-dim); text-transform:none; letter-spacing:0;">Junior (min.)</label>
+                  <input type="number" id="jsPerSession" min="0" max="200" value="0" style="width:100%;">
+                </div>
+                <div>
+                  <label for="squadPerSession" style="font-size:11px; color:var(--txt-dim); text-transform:none; letter-spacing:0;">Squad (exact)</label>
+                  <input type="number" id="squadPerSession" min="0" max="200" value="9" style="width:100%;">
+                </div>
+                <div>
+                  <label for="lastDaySquad" style="font-size:11px; color:var(--txt-dim); text-transform:none; letter-spacing:0;">Squad on last day</label>
+                  <input type="number" id="lastDaySquad" min="0" max="200" value="2" style="width:100%;">
+                </div>
+              </div>
+              <span class="input-help">One JS per allocated room is always kept; the minimum adds roaming JS seats. Squad is exact per session, with a separate last-day value.</span>
+            </div>
+
+            <div class="input-group mt-6">
+              <label for="dutyOverrides">Per-date Overrides (optional JSON)</label>
+              <textarea id="dutyOverrides" rows="2" placeholder='{"26-Feb-2026|Morning": {"js": 4, "squad": 2}}' style="width:100%; font-family:var(--mono); font-size:12px; padding:10px; border-radius:10px; border:1px solid var(--border);"></textarea>
+              <span class="input-help">Keys are <code>date|session</code> or a date. Leave blank to use the values above.</span>
             </div>
 
             <div class="input-group mt-6">
@@ -308,6 +357,7 @@
               <div class="slot-list disabled" id="slotList">
                 <p class="slot-placeholder">Select exam type to view slots</p>
               </div>
+            </div>
             </div>
           </div>
 
@@ -365,7 +415,64 @@
           </div>
         </div>
 
-        <!-- TIMETABLE VIEW (Inside Coordinator Dashboard) -->
+        <!-- MAIN TIMETABLE VIEW (Circular-style, candidate facing) -->
+        <div id="mainTimetableView" style="display:none;" class="dash-card main-tt-view">
+          <div id="mainTimetableEmpty" style="display:block; text-align:center; padding:60px 20px;">
+            <div style="width:64px; height:64px; border-radius:20px; background:rgba(99,102,241,0.1); color:#6366f1; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+            <h3 style="font-size:1.3rem; margin-bottom:8px;">No Timetable Generated Yet</h3>
+            <p style="color:var(--txt-dim); font-size:0.95rem; max-width:450px; margin:0 auto 24px;">Generate a timetable from the Generator tab to see the department-wise examination circular here.</p>
+            <button class="cta" onclick="showAdminSection('generator')" style="margin:0 auto;">
+              Go to Generator
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          </div>
+
+          <div id="mainTimetableContent" style="display:none;">
+            <div class="rbar" style="margin-bottom:20px;">
+              <div class="rbar-l">
+                <div>
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="rtitle" style="font-size:26px;">Main Timetable</div>
+                    <span id="mainTimetableStatusBadge" class="sbadge" style="padding:4px 12px; font-size:12px;">Active Schedule ✓</span>
+                  </div>
+                  <div class="rsub" id="mainTimetableSub" style="font-size:13px; margin-top:2px;">—</div>
+                </div>
+              </div>
+              <div class="rbar-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button class="exbtn" type="button" id="mainPdfBtn" onclick="openRunPdf(false)" style="display:none; padding:8px 16px; font-size:13px; font-weight:700; align-items:center; gap:6px;" title="Download the department-wise timetable PDF, one department per page">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="8" y1="13" x2="16" y2="13" />
+                    <line x1="8" y1="17" x2="13" y2="17" />
+                  </svg>
+                  Download Main Timetable PDF
+                </button>
+              </div>
+            </div>
+
+            <div class="main-tt-note">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              Candidate-facing circular. Select a department to view its timetable; the PDF keeps one department per page.
+            </div>
+
+            <div id="mainTimetableDeptTabs" class="main-tt-dept-tabs"></div>
+            <div id="mainTimetablePages" class="main-tt-pages"></div>
+          </div>
+        </div>
+
+        <!-- DETAILED TIMETABLE VIEW (Inside Coordinator Dashboard) -->
         <div id="timetableView" style="display:none;" class="dash-card">
           <!-- EMPTY STATE WHEN NO TIMETABLE GENERATED -->
           <div id="timetableViewEmpty" style="display:block; text-align:center; padding:60px 20px;">
@@ -391,13 +498,24 @@
               <div class="rbar-l">
                 <div>
                   <div style="display:flex; align-items:center; gap:10px;">
-                    <div class="rtitle" style="font-size:24px;">Examination Timetable</div>
+                    <div class="rtitle" style="font-size:24px;">Detailed Timetable</div>
                     <span id="timetableStatusBadge" class="sbadge" style="padding:4px 12px; font-size:12px;">Active Schedule ✓</span>
+                    <span class="stag" style="background:rgba(99,102,241,0.1); color:#4f46e5; padding:4px 10px;">Coordinator only</span>
                   </div>
                   <div class="rsub" id="rsub" style="font-size:13px; margin-top:2px;">—</div>
                 </div>
               </div>
               <div class="rbar-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button class="exbtn" type="button" id="detailedPdfBtn" onclick="openRunPdf(true)" style="display:none; padding:8px 16px; font-size:13px; font-weight:700; align-items:center; gap:6px;" title="Coordinator-only rooms and invigilation duties PDF">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="8" y1="13" x2="16" y2="13" />
+                    <line x1="8" y1="17" x2="13" y2="17" />
+                  </svg>
+                  Detailed Rooms &amp; Duties PDF
+                </button>
+                <div id="legacyResultActions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <button class="exbtn" type="button" onclick="downloadConfirmedExcel()" style="padding:8px 16px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -406,6 +524,25 @@
                   </svg>
                   Download Excel
                 </button>
+                <button class="exbtn" type="button" onclick="window.location.href='/roster/junior.pdf'" style="padding:8px 14px; font-size:13px; font-weight:600;" title="College-format Junior Supervisor roster">
+                  JS Roster PDF
+                </button>
+                <button class="exbtn" type="button" onclick="window.location.href='/roster/junior.xlsx'" style="padding:8px 14px; font-size:13px; font-weight:600;" title="College-format Junior Supervisor roster (Excel)">
+                  JS Roster Excel
+                </button>
+                <button class="exbtn" type="button" onclick="window.location.href='/roster/squad.pdf'" style="padding:8px 14px; font-size:13px; font-weight:600;" title="College-format Internal Squad roster">
+                  Squad Roster PDF
+                </button>
+                <button class="exbtn" type="button" onclick="window.location.href='/roster/squad.xlsx'" style="padding:8px 14px; font-size:13px; font-weight:600;" title="College-format Internal Squad roster (Excel)">
+                  Squad Roster Excel
+                </button>
+                <button class="exbtn" type="button" id="emailFacultyBtn" onclick="emailTimetableReports()" style="padding:8px 14px; font-size:13px; font-weight:600;" title="Email every assigned faculty member their signed Word and Excel duty report">
+                  Email Faculty
+                </button>
+                <button class="exbtn" type="button" id="testFacultyMailBtn" onclick="sendTestDutyEmail()" style="padding:8px 14px; font-size:13px; font-weight:600;" title="Send one sample faculty report to the configured test recipient">
+                  Test Mail
+                </button>
+                </div>
                 <button class="cta glow" id="confirmBtn" onclick="confirmSchedule()" style="padding:8px 16px; font-size:13px;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -427,37 +564,37 @@
               <div class="scard" style="--acc:#6366f1; padding:16px;"><span class="sico">📚</span>
                 <div>
                   <div class="snum" id="sc1" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Courses Scheduled</div>
+                  <div class="slabel" id="sc1Label" style="font-size:11px;">Courses Scheduled</div>
                 </div>
               </div>
               <div class="scard" style="--acc:#8b5cf6; padding:16px;"><span class="sico">👥</span>
                 <div>
                   <div class="snum" id="sc2" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Students</div>
+                  <div class="slabel" id="sc2Label" style="font-size:11px;">Students</div>
                 </div>
               </div>
               <div class="scard" style="--acc:#06b6d4; padding:16px;"><span class="sico">🗓️</span>
                 <div>
                   <div class="snum" id="sc3" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Exam Slots</div>
+                  <div class="slabel" id="sc3Label" style="font-size:11px;">Exam Slots</div>
                 </div>
               </div>
               <div class="scard" style="--acc:#10b981; padding:16px;"><span class="sico">✅</span>
                 <div>
                   <div class="snum" id="sc4" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Student Conflicts</div>
+                  <div class="slabel" id="sc4Label" style="font-size:11px;">Student Conflicts</div>
                 </div>
               </div>
               <div class="scard" style="--acc:#f59e0b; padding:16px;"><span class="sico">👩‍🏫</span>
                 <div>
                   <div class="snum" id="sc5" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Duties Assigned</div>
+                  <div class="slabel" id="sc5Label" style="font-size:11px;">Duties Assigned</div>
                 </div>
               </div>
               <div class="scard" style="--acc:#ec4899; padding:16px;"><span class="sico">🎯</span>
                 <div>
                   <div class="snum" id="sc6" style="font-size:22px;">—</div>
-                  <div class="slabel" style="font-size:11px;">Pref. Satisfaction</div>
+                  <div class="slabel" id="sc6Label" style="font-size:11px;">Pref. Satisfaction</div>
                 </div>
               </div>
             </div>
@@ -465,23 +602,7 @@
             <!-- PANEL -->
             <div class="panel">
               <div class="ptabs">
-                <button class="ptab on" onclick="tab('tt',this)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  Exam Timetable
-                </button>
-                <button class="ptab" onclick="tab('rm',this)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  Room Allocation
-                </button>
-                <button class="ptab" onclick="tab('tc',this)">
+                <button class="ptab on" onclick="tab('tc',this)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                     <circle cx="9" cy="7" r="4" />
@@ -490,11 +611,27 @@
                   </svg>
                   Teacher Duties
                 </button>
+                <button class="ptab" onclick="tab('rm',this)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                  Room Allocation
+                </button>
+                <button class="ptab" onclick="tab('tt',this)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  Exam Timetable
+                </button>
                 <div class="pind" id="pind"></div>
               </div>
 
               <!-- TIMETABLE TAB -->
-              <div class="tcont on" id="tc-tt" style="padding:24px;">
+              <div class="tcont" id="tc-tt" style="padding:24px;">
                 <div class="tbar" style="margin-bottom:16px;">
                   <div class="tbar-l">
                     <span class="stag ind">Stage 1</span>
@@ -586,7 +723,7 @@
               </div>
 
               <!-- TEACHERS TAB -->
-              <div class="tcont" id="tc-tc" style="padding:24px;">
+              <div class="tcont on" id="tc-tc" style="padding:24px;">
                 <div class="tbar" style="margin-bottom:16px;">
                   <div class="tbar-l">
                     <span class="stag ind">Stage 3</span>
@@ -616,15 +753,12 @@
                   <table id="tctbl">
                     <thead>
                       <tr>
-                        <th>Slot</th>
                         <th>Date</th>
                         <th>Session</th>
                         <th>Course</th>
                         <th>Role</th>
-                        <th>Teacher ID</th>
-                        <th>Name</th>
+                        <th>Faculty Allocated</th>
                         <th>Previous Role</th>
-                        <th>Priority</th>
                         <th>Room</th>
                       </tr>
                     </thead>
@@ -723,6 +857,33 @@
               </svg>
               Export CSV
             </button>
+          </div>
+        </div>
+
+        <!-- CHANGE REQUEST STATUS -->
+        <div class="dash-card mt-6">
+          <div class="tbar">
+            <div class="tbar-l">
+              <span class="stag" style="background:rgba(245,158,11,.12);color:#d97706">Requests</span>
+              <span class="tdesc">Change requests stay under scrutiny until the coordinator approves or rejects them</span>
+            </div>
+            <button class="exbtn" type="button" onclick="loadTeacherRequests(true)">Refresh Status</button>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Duty</th>
+                  <th>Reason</th>
+                  <th>Coordinator Decision</th>
+                  <th>Submitted</th>
+                </tr>
+              </thead>
+              <tbody id="teacherRequestsBody">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading change requests...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -883,6 +1044,15 @@
       return new Date(dateStr);
     }
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     const uzone = document.getElementById('uzone'), fi = document.getElementById('fileInput'),
       fpill = document.getElementById('fpill'), fname = document.getElementById('fname'),
       genBtn = document.getElementById('genBtn');
@@ -969,6 +1139,8 @@
 `;
 
     let currentUser = null;
+    let teacherRequestsTimer = null;
+    let teacherRequestStatuses = {};
 
     function setTheme(theme) {
       const selected = theme === 'dark' ? 'dark' : 'light';
@@ -1037,6 +1209,7 @@
       const emailLabel = document.getElementById('emailLabel');
       const emailHelp = document.getElementById('emailHelp');
       const emailInput = document.getElementById('emailInput');
+      const passwordInput = document.getElementById('passwordInput');
       const loginBtnText = document.getElementById('loginBtnText');
       const loginSubmitBtn = document.getElementById('loginSubmitBtn');
 
@@ -1058,6 +1231,7 @@
         emailLabel.textContent = 'Coordinator Email';
         emailHelp.textContent = 'Enter your @pict.edu coordinator email address';
         emailInput.placeholder = 'coordinator@pict.edu';
+        passwordInput.placeholder = 'Enter coordinator password';
         loginBtnText.textContent = 'Sign In as Coordinator';
         loginSubmitBtn.style.background = '';
       } else {
@@ -1067,10 +1241,11 @@
         badge.style.color = '#0891b2';
         tabs.style.display = 'flex';
         title.textContent = 'Faculty Login';
-        subtitle.textContent = 'Sign in with your Teacher ID or @pict.edu email';
-        emailLabel.textContent = 'Teacher ID or Institutional Email';
-        emailHelp.textContent = 'Enter your Teacher ID (e.g. T001) or email (t001@pict.edu)';
-        emailInput.placeholder = 'T001 or t001@pict.edu';
+        subtitle.textContent = 'Sign in with your @pict.edu institutional email';
+        emailLabel.textContent = 'Institutional Email';
+        emailHelp.textContent = 'Format: Teacher ID + @pict.edu (e.g. t001@pict.edu)';
+        emailInput.placeholder = 't001@pict.edu';
+        passwordInput.placeholder = 'Default password: your Teacher ID (e.g. t001)';
         loginBtnText.textContent = 'Sign In as Faculty';
         loginSubmitBtn.style.background = 'linear-gradient(135deg, #06b6d4, #3b82f6)';
 
@@ -1101,7 +1276,11 @@
       err.textContent = '';
 
       if (!email) {
-        err.textContent = 'Please enter your institutional email or Teacher ID.';
+        err.textContent = 'Please enter your institutional email.';
+        return;
+      }
+      if (!email.toLowerCase().endsWith('@pict.edu')) {
+        err.textContent = 'Email must end with @pict.edu (e.g. t001@pict.edu).';
         return;
       }
       if (!password) {
@@ -1346,6 +1525,10 @@
 
     function showDashboard(user) {
       currentUser = user;
+      if (teacherRequestsTimer) {
+        clearInterval(teacherRequestsTimer);
+        teacherRequestsTimer = null;
+      }
       document.getElementById('landingPage').style.display = 'none';
       if (user.is_admin) {
         document.getElementById('loginPage').style.display = 'none';
@@ -1440,15 +1623,102 @@
         } else {
           pastBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No past duties on record.</td></tr>';
         }
+
+        loadTeacherRequests();
+        teacherRequestsTimer = setInterval(() => {
+          if (currentUser && !currentUser.is_admin) loadTeacherRequests();
+        }, 20000);
       }
+    }
+
+    function teacherRequestTone(tone) {
+      const tones = {
+        warning: { background: 'rgba(245,158,11,.12)', color: '#d97706' },
+        info: { background: 'rgba(59,130,246,.12)', color: '#2563eb' },
+        success: { background: 'rgba(16,185,129,.12)', color: '#059669' },
+        danger: { background: 'rgba(239,68,68,.12)', color: '#dc2626' },
+        muted: { background: 'rgba(100,116,139,.12)', color: '#64748b' },
+      };
+      return tones[tone] || tones.muted;
+    }
+
+    function loadTeacherRequests(showLoading = false) {
+      if (!currentUser || currentUser.is_admin) return;
+      const tbody = document.getElementById('teacherRequestsBody');
+      if (!tbody) return;
+      if (showLoading) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Refreshing request status...</td></tr>';
+      }
+
+      fetch('/teacher/requests', { credentials: 'same-origin' })
+        .then(async response => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Unable to load change requests');
+          return data;
+        })
+        .then(data => {
+          const requests = data.requests || [];
+          const previousStatuses = teacherRequestStatuses;
+          teacherRequestStatuses = {};
+          let newlyResolved = false;
+          requests.forEach(request => {
+            teacherRequestStatuses[request.request_id] = request.status_key;
+            const wasPending = ['pending', 'parsed'].includes(previousStatuses[request.request_id]);
+            const isResolved = ['approved', 'applied', 'rejected', 'skipped'].includes(request.status_key);
+            if (wasPending && isResolved) newlyResolved = true;
+          });
+
+          if (requests.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No change requests submitted yet.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = requests.map(request => {
+            const tone = teacherRequestTone(request.status_tone);
+            const submitted = request.created_at
+              ? new Date(request.created_at).toLocaleString()
+              : 'N/A';
+            const reason = escapeHtml(request.reason || 'No reason provided');
+            const decision = escapeHtml(request.resolution || 'Awaiting coordinator review.');
+            const fileLink = request.file_url
+              ? `<br><a class="ulink" href="${escapeHtml(request.file_url)}" target="_blank" rel="noopener">View uploaded proof</a>`
+              : '';
+            return `
+              <tr class="ri">
+                <td>
+                  <span class="stag" style="background:${tone.background};color:${tone.color};font-weight:700;white-space:nowrap;">
+                    ${escapeHtml(request.status_label)}
+                  </span>
+                </td>
+                <td>
+                  <span class="mbadge">Slot ${escapeHtml(request.current_slot)}</span><br>
+                  <small style="color:var(--txt-dim);font-family:var(--mono);">${escapeHtml(request.current_date)}</small>
+                </td>
+                <td style="max-width:240px;white-space:normal;">${reason}${fileLink}</td>
+                <td style="max-width:300px;white-space:normal;">${decision}</td>
+                <td style="white-space:nowrap;">${escapeHtml(submitted)}</td>
+              </tr>
+            `;
+          }).join('');
+
+          if (newlyResolved && currentUser && currentUser.identifier) {
+            setTimeout(() => {
+              if (currentUser && !currentUser.is_admin) refreshTeacherDuties(currentUser.identifier);
+            }, 1200);
+          }
+        })
+        .catch(error => {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;">Could not load requests: ${escapeHtml(error.message)}</td></tr>`;
+        });
     }
 
     function checkConfirmedTimetable(callback) {
       fetch('/confirmed_timetable')
         .then(async r => {
           const data = await r.json();
-          const ttBadge = document.getElementById('navTimetableBadge');
+          const ttBadge = document.getElementById('navMainTimetableBadge');
           const statusBadge = document.getElementById('timetableStatusBadge');
+          const mainStatusBadge = document.getElementById('mainTimetableStatusBadge');
           const confirmBtn = document.getElementById('confirmBtn');
 
           if (data) {
@@ -1463,6 +1733,11 @@
               statusBadge.style.background = '#ecfdf5';
               statusBadge.style.color = '#059669';
             }
+            if (mainStatusBadge) {
+              mainStatusBadge.textContent = 'Active Schedule ✓';
+              mainStatusBadge.style.background = '#ecfdf5';
+              mainStatusBadge.style.color = '#059669';
+            }
             if (confirmBtn) {
               confirmBtn.innerHTML = '<span>Published Successfully ✓</span>';
               confirmBtn.style.background = '#10b981';
@@ -1471,10 +1746,14 @@
           } else {
             if (ttBadge) ttBadge.style.display = 'none';
             if (!G) {
-              const empty = document.getElementById('timetableViewEmpty');
-              const content = document.getElementById('timetableViewContent');
-              if (empty) empty.style.display = 'block';
-              if (content) content.style.display = 'none';
+              ['timetableViewEmpty', 'mainTimetableEmpty'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.style.display = 'block';
+              });
+              ['timetableViewContent', 'mainTimetableContent'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.style.display = 'none';
+              });
             }
           }
           if (callback) callback(data);
@@ -1489,7 +1768,7 @@
         .then(adjs => {
           const adjBadge = document.getElementById('navAdjustmentsBadge');
           if (adjBadge) {
-            const pendingCount = adjs.filter(a => a.status === 'Pending').length;
+            const pendingCount = adjs.filter(a => ['pending', 'parsed'].includes(String(a.status || '').toLowerCase())).length;
             if (pendingCount > 0) {
               adjBadge.textContent = pendingCount;
               adjBadge.style.display = 'inline-block';
@@ -1502,6 +1781,10 @@
     }
 
     async function logout() {
+      if (teacherRequestsTimer) {
+        clearInterval(teacherRequestsTimer);
+        teacherRequestsTimer = null;
+      }
       try {
         await fetch('/logout', { method: 'POST' });
       } catch (_) {
@@ -1509,6 +1792,7 @@
       }
 
       currentUser = null;
+      teacherRequestStatuses = {};
       document.getElementById('uploadPage').style.display = 'none';
       document.getElementById('teacherPage').style.display = 'none';
       document.getElementById('loginPage').style.display = 'none';
@@ -1559,6 +1843,10 @@
       branchSelect.disabled = true;
       document.getElementById('examTypeSelect').value = "";
       document.getElementById('examTypeSelect').disabled = true;
+      document.getElementById('examStartDate').value = '';
+      document.getElementById('examEndDate').value = '';
+      const modeSelect = document.getElementById('modeSelect');
+      if (modeSelect) modeSelect.value = 'multi';
       document.getElementById('slotList').classList.add('disabled');
       document.getElementById('slotList').innerHTML = '<p class="slot-placeholder">Select exam type to view slots</p>';
       document.getElementById('uploadCard').classList.add('disabled');
@@ -1571,11 +1859,48 @@
       selectedSlots.clear();
       clearFile();
       clearPrefFile();
+      stepMode();
+    }
+
+    function isMultiMode() {
+      return (document.getElementById('modeSelect')?.value || 'multi') === 'multi';
+    }
+
+    function stepMode() {
+      const multi = isMultiMode();
+      const branchSelect = document.getElementById('branchSelect');
+      const endGroup = document.getElementById('endDateGroup');
+      const legacyControls = document.getElementById('legacyDutyControls');
+      if (endGroup) endGroup.style.display = multi ? '' : 'none';
+      if (legacyControls) legacyControls.style.display = multi ? 'none' : '';
+      if (multi) {
+        branchSelect.innerHTML = '<option value="ALL">All Departments</option>';
+        branchSelect.value = 'ALL';
+        branchSelect.disabled = true;
+        const examType = document.getElementById('examTypeSelect');
+        if (examType) examType.disabled = !document.getElementById('yearSelect').value;
+      } else {
+        step1();
+      }
+      step3Check();
     }
 
     function step1() {
       const year = document.getElementById('yearSelect').value;
       const branchSelect = document.getElementById('branchSelect');
+      if (year === 'FY' && isMultiMode()) {
+        document.getElementById('modeSelect').value = 'single';
+        stepMode();
+        return;
+      }
+      if (isMultiMode()) {
+        branchSelect.innerHTML = '<option value="ALL">All Departments</option>';
+        branchSelect.value = 'ALL';
+        branchSelect.disabled = true;
+        document.getElementById('examTypeSelect').disabled = !year;
+        step3Check();
+        return;
+      }
       if (year === 'FY') {
         branchSelect.innerHTML = '<option value="ALL">FY (All Branches)</option>';
         branchSelect.value = 'ALL';
@@ -1590,6 +1915,7 @@
         branchSelect.value = "";
         branchSelect.disabled = true;
       }
+      step3Check();
     }
 
     function step2() {
@@ -1601,7 +1927,7 @@
 
     function step3() {
       // When exam type changes, just update the slot list.
-      // The upload zone is enabled only when both type AND start date are provided.
+      // The upload zone is enabled only when the type and required dates exist.
       const type = document.getElementById('examTypeSelect').value;
       if (type) {
         document.getElementById('slotList').classList.remove('disabled');
@@ -1611,10 +1937,15 @@
     }
 
     function step3Check() {
-      // Enable upload zone only when exam type AND start date are both provided
+      // Enable upload only when the exam type and the required dates exist.
       const type = document.getElementById('examTypeSelect').value;
       const startDate = document.getElementById('examStartDate').value;
-      if (type && startDate) {
+      const endInput = document.getElementById('examEndDate');
+      const endDate = endInput ? endInput.value : '';
+      if (endInput) endInput.min = startDate || '';
+      const rangeInvalid = !!(startDate && endDate && endDate < startDate);
+      const datesReady = !!startDate && (!isMultiMode() || (!!endDate && !rangeInvalid));
+      if (type && datesReady) {
         document.getElementById('uploadCard').classList.remove('disabled');
         document.getElementById('uzone').classList.remove('disabled');
         document.getElementById('fileInput').disabled = false;
@@ -1637,6 +1968,23 @@
       }
     }
 
+    function clearRenderedTimetables() {
+      ['timetableViewEmpty', 'mainTimetableEmpty'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.style.display = 'block';
+      });
+      ['timetableViewContent', 'mainTimetableContent'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.style.display = 'none';
+      });
+      mainTimetableSectionsCache = [];
+      selectedMainDepartment = null;
+      const tabs = document.getElementById('mainTimetableDeptTabs');
+      const pages = document.getElementById('mainTimetablePages');
+      if (tabs) tabs.innerHTML = '';
+      if (pages) pages.innerHTML = '';
+    }
+
     function reset() {
       if (G && G.confirmed_at) {
         if (!confirm("This will clear the currently published schedule from the database. Are you sure you want to create a new schedule?")) {
@@ -1648,11 +1996,9 @@
           .then(d => {
             if (d.success) {
               G = null;
-              const empty = document.getElementById('timetableViewEmpty');
-              const content = document.getElementById('timetableViewContent');
-              if (empty) empty.style.display = 'block';
-              if (content) content.style.display = 'none';
-              const ttBadge = document.getElementById('navTimetableBadge');
+              updateResultActions();
+              clearRenderedTimetables();
+              const ttBadge = document.getElementById('navMainTimetableBadge');
               if (ttBadge) ttBadge.style.display = 'none';
               showAdminSection('generator');
               resetConfig();
@@ -1666,11 +2012,9 @@
           });
       } else {
         G = null;
-        const empty = document.getElementById('timetableViewEmpty');
-        const content = document.getElementById('timetableViewContent');
-        if (empty) empty.style.display = 'block';
-        if (content) content.style.display = 'none';
-        const ttBadge = document.getElementById('navTimetableBadge');
+        updateResultActions();
+        clearRenderedTimetables();
+        const ttBadge = document.getElementById('navMainTimetableBadge');
         if (ttBadge) ttBadge.style.display = 'none';
         showAdminSection('generator');
         resetConfig();
@@ -1707,14 +2051,44 @@
     let G = null;
     function generate() {
       const f = fi.files[0]; if (!f) return;
+      const mode = document.getElementById('modeSelect')?.value || 'multi';
+      const multi = mode === 'multi';
       const year = document.getElementById('yearSelect').value;
       const branch = document.getElementById('branchSelect').value;
       const examType = document.getElementById('examTypeSelect').value;
       const examStartDate = document.getElementById('examStartDate').value;
+      const examEndDate = document.getElementById('examEndDate').value;
 
+      if (!year || !examType) {
+        alert('Select the academic year and exam type before generating the timetable.');
+        return;
+      }
       if (!examStartDate) {
         alert('Please select an Exam Start Date before generating the timetable.');
         return;
+      }
+      if (multi && !examEndDate) {
+        alert('Please select an Exam End Date for all-department generation.');
+        return;
+      }
+      if (multi && examEndDate < examStartDate) {
+        alert('The Exam End Date must be on or after the Exam Start Date.');
+        return;
+      }
+      if (multi && year === 'FY') {
+        alert('All-department generation is for SY / TY / B.Tech papers. Use Single Department mode for FY.');
+        return;
+      }
+
+      const dutyOverrides = (document.getElementById('dutyOverrides')?.value || '').trim();
+      if (!multi && dutyOverrides) {
+        try {
+          const parsed = JSON.parse(dutyOverrides);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Expected a JSON object');
+        } catch (err) {
+          alert('Per-date overrides must be a valid JSON object, e.g. {"26-Feb-2026|Morning": {"js": 4, "squad": 2}}.');
+          return;
+        }
       }
 
       document.getElementById('loadScreen').style.display = 'flex';
@@ -1722,18 +2096,33 @@
 
       const fd = new FormData();
       fd.append('file', f);
-      if (prefFi && prefFi.files[0]) {
-        fd.append('preferences_file', prefFi.files[0]);
-      }
       fd.append('year', year);
-      fd.append('branch', branch);
       fd.append('exam_type', examType);
       fd.append('selected_slots', Array.from(selectedSlots).join(','));
-      fd.append('start_date', examStartDate); // Send start date to backend
+      fd.append('start_date', examStartDate);
 
-      fetch('/generate', { method: 'POST', body: fd })
+      if (multi) {
+        fd.append('end_date', examEndDate);
+        fd.append('departments', 'CE,ENTC,IT,AIDS,ECE');
+      } else {
+        if (prefFi && prefFi.files[0]) {
+          fd.append('preferences_file', prefFi.files[0]);
+        }
+        fd.append('branch', branch);
+        fd.append('js_per_session', document.getElementById('jsPerSession')?.value || '0');
+        fd.append('squad_per_session', document.getElementById('squadPerSession')?.value || '9');
+        fd.append('last_day_squad', document.getElementById('lastDaySquad')?.value || '2');
+        fd.append('duty_overrides', dutyOverrides || '{}');
+      }
+
+      fetch(multi ? '/generate_departments' : '/generate', { method: 'POST', body: fd })
         .then(async r => {
-          const data = await r.json();
+          let data = null;
+          try {
+            data = await r.json();
+          } catch (_) {
+            throw new Error('The server returned an unreadable response.');
+          }
           if (!r.ok) throw new Error(data.error || 'Server error');
           return data;
         })
@@ -1762,12 +2151,15 @@
           }
 
           setTimeout(() => {
+            clearInterval(iv);
             render(d);
             document.getElementById('loadScreen').style.display = 'none';
-            showAdminSection('timetable');
+            const multiRun = d.mode === 'multi_department' || d.multi_department === true;
+            showAdminSection(multiRun ? 'main' : 'detailed');
           }, 1200);
         })
         .catch(err => {
+          clearInterval(iv);
           document.getElementById('loadScreen').style.display = 'none';
           alert('Generation Failed: ' + err.message);
         });
@@ -1777,22 +2169,70 @@
     function schip(s) { return `<span class="schip ${slotCls[s] || 's1c'}">Slot ${s}</span>` }
 
     function render(d) {
+      if (d) G = d;
       const s = d.summary || {};
-      document.getElementById('sc1').textContent = s.total_courses || 0;
+      const multi = !!(d.mode === 'multi_department' || d.multi_department === true);
+      const rawDepartments = (d.departments_requested || d.departments || [])
+        .filter(Boolean)
+        .map(item => (item && typeof item === 'object' ? item.department : item))
+        .filter(Boolean);
+      const derivedDepartments = rawDepartments.length
+        ? rawDepartments
+        : Array.from(new Set((d.timetable || []).map(r => r.department).filter(Boolean)));
+      const totalCourses = s.total_courses || (d.timetable || []).length;
+      const examDays = (d.calendar_dates || []).length
+        || new Set((d.timetable || []).map(r => r.date).filter(Boolean)).size;
+      const dutyProblems = (s.assignment_problems || []).length + (s.duties_failed || 0);
+
+      const labels = {
+        sc1: multi ? 'Courses Scheduled' : 'Courses Scheduled',
+        sc2: multi ? 'Students' : 'Students',
+        sc3: multi ? 'Exam Days' : 'Exam Slots',
+        sc4: multi ? 'Duty Problems' : 'Student Conflicts'
+      };
+      Object.keys(labels).forEach(key => {
+        const label = document.getElementById(key + 'Label');
+        if (label) label.textContent = labels[key];
+      });
+
+      document.getElementById('sc1').textContent = totalCourses;
       document.getElementById('sc2').textContent = s.total_students || 0;
-      document.getElementById('sc3').textContent = s.slots_used || 0;
-      document.getElementById('sc4').textContent = s.conflicts_found === 0 ? '0 ✓' : (s.conflicts_found || 0);
+      document.getElementById('sc3').textContent = multi ? examDays : (s.slots_used || 0);
+      document.getElementById('sc4').textContent = multi
+        ? (dutyProblems === 0 ? '0 ✓' : dutyProblems)
+        : (s.conflicts_found === 0 ? '0 ✓' : (s.conflicts_found || 0));
       document.getElementById('sc5').textContent = (s.duties_assigned || 0) + '/' + ((s.duties_assigned || 0) + (s.duties_failed || 0));
       document.getElementById('sc6').textContent = (s.pref_satisfaction || 0) + '%';
-      document.getElementById('rsub').textContent =
-        (s.total_courses || 0) + ' courses · ' + (s.slots_used || 0) + ' slots · ' + (s.total_students || 0) + ' students';
+
+      if (multi) {
+        const start = d.start_date || (d.exam_period && d.exam_period.start_date) || '';
+        const end = d.end_date || (d.exam_period && d.exam_period.end_date) || '';
+        const period = start && end ? ' · ' + start + ' to ' + end : '';
+        document.getElementById('rsub').textContent =
+          derivedDepartments.length + ' departments · ' + derivedDepartments.join(', ')
+          + ' · ' + totalCourses + ' papers · ' + (s.total_students || 0) + ' students' + period;
+      } else {
+        document.getElementById('rsub').textContent =
+          totalCourses + ' courses · ' + (s.slots_used || 0) + ' slots · ' + (s.total_students || 0) + ' students';
+      }
+
+      const mainSub = document.getElementById('mainTimetableSub');
+      if (mainSub) {
+        const start = d.start_date || (d.exam_period && d.exam_period.start_date) || '';
+        const end = d.end_date || (d.exam_period && d.exam_period.end_date) || '';
+        const period = start && end ? ' · ' + start + ' to ' + end : '';
+        mainSub.textContent = derivedDepartments.length
+          ? derivedDepartments.length + ' departments · ' + totalCourses + ' papers · '
+            + examDays + ' exam days' + period
+          : totalCourses + ' papers · ' + examDays + ' exam days' + period;
+      }
 
       const tb = document.querySelector('#ttbl tbody'); if (tb) tb.innerHTML = '';
       (d.timetable || []).forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
         tr.innerHTML = `
-      <td><span class="mbadge">${r.course_id}</span></td>
+      <td><span class="mbadge">${r.course_code || r.course_id}</span></td>
       <td class="ncell">${r.course_name}</td>
       <td>${r.year}</td>
       <td><span class="dtag">${r.department}</span></td>
@@ -1808,8 +2248,9 @@
       (d.room_allocation || []).forEach((r, i) => {
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
+        const dept = r.department ? `<span class="dtag">${r.department}</span> ` : '';
         tr.innerHTML = `
-      <td><span class="mbadge">${r.course_id}</span></td>
+      <td>${dept}<span class="mbadge">${r.course_id}</span></td>
       <td>${schip(r.slot)}</td>
       <td class="mcell">${r.date}</td>
       <td>${r.session}</td>
@@ -1824,20 +2265,23 @@
         const tr = document.createElement('tr');
         tr.className = 'ri'; tr.style.animationDelay = (i * 28) + 'ms';
         const rl = (r.role || '').toLowerCase();
+        const dept = r.exam_department || (multi ? r.department : '');
+        const deptBadge = dept ? `<span class="dtag">${dept}</span> ` : '';
+        const priority = (r.is_priority === 'Yes' || r.is_priority === true)
+          ? '<span class="t-priority" title="Priority preference met">✓ priority</span>'
+          : '';
         tr.innerHTML = `
-      <td>${schip(r.slot)}</td>
-      <td class="mcell">${r.date}</td>
+      <td>${schip(r.slot)}<br><span class="mcell">${r.date}</span></td>
       <td>${r.session}</td>
-      <td><span class="mbadge">${r.course_id}</span></td>
+      <td>${deptBadge}<span class="mbadge">${r.course_id}</span></td>
       <td><span class="rchip ${rl}">${r.role}</span></td>
-      <td class="mcell">${r.teacher_id}</td>
       <td>
         <div class="t-info">
-          <span class="t-name">${r.teacher_name}</span>
+          <span class="t-name">${r.teacher_name}${priority}</span>
+          <small class="t-id">${r.teacher_id}</small>
         </div>
       </td>
       <td><span class="hbadge">${r.last_role}</span></td>
-      <td>${(r.is_priority === 'Yes' || r.is_priority === true) ? '<span class="pyes">✓ Yes</span>' : '<span class="pno">— No</span>'}</td>
       <td class="mcell">${r.room_assigned || r['Room Assigned'] || ''}</td>`;
         if (tc) tc.appendChild(tr);
       });
@@ -1846,8 +2290,225 @@
       const content = document.getElementById('timetableViewContent');
       if (empty) empty.style.display = 'none';
       if (content) content.style.display = 'block';
+      const mainEmpty = document.getElementById('mainTimetableEmpty');
+      const mainContent = document.getElementById('mainTimetableContent');
+      if (mainEmpty) mainEmpty.style.display = 'none';
+      if (mainContent) mainContent.style.display = 'block';
 
+      renderMainTimetable(d);
+      updateResultActions();
       setTimeout(() => moveInd(document.querySelector('.ptab.on')), 80);
+    }
+
+    const MAIN_DEPARTMENT_TITLES = {
+      CE: 'T. Y. COMPUTER ENGINEERING',
+      ENTC: 'T. Y. ELECTRONICS & TELECOMMUNICATION ENGINEERING',
+      IT: 'T. Y. INFORMATION TECHNOLOGY ENGINEERING',
+      AIDS: 'T. Y. ARTIFICIAL INTELLIGENCE & DATA SCIENCE ENGINEERING',
+      ECE: 'T. Y. ELECTRONICS & COMPUTER ENGINEERING'
+    };
+
+    let mainTimetableSectionsCache = [];
+    let selectedMainDepartment = null;
+
+    function mainTimetableTime(value) {
+      let text = String(value || '').replace(/[–—]/g, '-').replace(/\bto\b/gi, 'TO');
+      text = text.replace(/\s+/g, ' ').trim();
+      const match = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!match) return text.toUpperCase();
+      const startMer = (match[3] || match[6] || '').toUpperCase();
+      const endMer = (match[6] || match[3] || '').toUpperCase();
+      return parseInt(match[1], 10) + '.' + match[2] + ' ' + startMer
+        + ' TO ' + parseInt(match[4], 10) + '.' + match[5] + ' ' + endMer;
+    }
+
+    function mainTimetableDate(value) {
+      const parsed = parseCustomDate(value);
+      if (!parsed || isNaN(parsed)) {
+        return { day: '', date: String(value || '') };
+      }
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const day = String(parsed.getDate()).padStart(2, '0');
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      return { day: days[parsed.getDay()], date: day + '/' + month + '/' + parsed.getFullYear() };
+    }
+
+    function buildMainTimetableSections(d) {
+      const payloadDepartments = Array.isArray(d.departments)
+        ? d.departments.filter(item => item && typeof item === 'object' && Array.isArray(item.sessions))
+        : [];
+      if (payloadDepartments.length) {
+        return payloadDepartments.map(department => ({
+          department: department.department,
+          title: department.title || MAIN_DEPARTMENT_TITLES[department.department] || department.department,
+          sessions: (department.sessions || [])
+            .filter(session => (session.courses || []).length)
+            .sort((a, b) => Number(a.slot || 0) - Number(b.slot || 0))
+        }));
+      }
+
+      const rows = d.timetable || [];
+      const requested = (d.departments_requested || d.departments || [])
+        .filter(Boolean)
+        .map(item => (item && typeof item === 'object' ? item.department : item))
+        .filter(Boolean);
+      const order = requested.length
+        ? requested
+        : Array.from(new Set(rows.map(row => row.department).filter(Boolean)));
+      const sections = [];
+      order.forEach(department => {
+        const departmentRows = rows.filter(row => row.department === department);
+        if (!departmentRows.length) return;
+        const groups = [];
+        const groupByKey = new Map();
+        departmentRows.forEach(row => {
+          const key = [row.date, row.slot, row.session].join('|');
+          let group = groupByKey.get(key);
+          if (!group) {
+            group = {
+              slot: row.slot,
+              date: row.date,
+              session: row.session,
+              category: row.category || '',
+              courses: []
+            };
+            groupByKey.set(key, group);
+            groups.push(group);
+          }
+          group.courses.push(row);
+        });
+        groups.sort((a, b) => Number(a.slot || 0) - Number(b.slot || 0));
+        sections.push({
+          department,
+          title: MAIN_DEPARTMENT_TITLES[department] || department,
+          sessions: groups
+        });
+      });
+      return sections;
+    }
+
+    function renderMainTimetable(d) {
+      mainTimetableSectionsCache = buildMainTimetableSections(d);
+      const tabs = document.getElementById('mainTimetableDeptTabs');
+      const pages = document.getElementById('mainTimetablePages');
+      if (!tabs || !pages) return;
+      if (!mainTimetableSectionsCache.length) {
+        tabs.innerHTML = '';
+        pages.innerHTML = '<div class="main-tt-no-data">No department timetable is available for this run.</div>';
+        return;
+      }
+      if (!mainTimetableSectionsCache.some(section => section.department === selectedMainDepartment)) {
+        selectedMainDepartment = mainTimetableSectionsCache[0].department;
+      }
+      tabs.innerHTML = mainTimetableSectionsCache.map(section => `
+        <button type="button" class="main-dept-tab ${section.department === selectedMainDepartment ? 'on' : ''}"
+          data-department="${escapeHtml(section.department)}"
+          onclick="selectMainDepartment('${escapeHtml(section.department)}')"
+          title="${escapeHtml(section.title)}">
+          <span>${escapeHtml(section.department)}</span>
+          <small>${section.sessions.length} sessions</small>
+        </button>
+      `).join('');
+      renderMainDepartmentPage();
+    }
+
+    function selectMainDepartment(department) {
+      selectedMainDepartment = department;
+      document.querySelectorAll('#mainTimetableDeptTabs .main-dept-tab').forEach(button => {
+        button.classList.toggle('on', button.dataset.department === department);
+      });
+      renderMainDepartmentPage();
+    }
+
+    function renderMainDepartmentPage() {
+      const pages = document.getElementById('mainTimetablePages');
+      if (!pages) return;
+      const section = mainTimetableSectionsCache.find(item => item.department === selectedMainDepartment);
+      if (!section) {
+        pages.innerHTML = '';
+        return;
+      }
+      const rows = section.sessions.map(session => {
+        const courses = session.courses || [];
+        const date = mainTimetableDate(session.date);
+        const codes = courses
+          .map(course => `<div class="mt-code-line">${escapeHtml(course.course_code || course.course_id)}</div>`)
+          .join('');
+        let names = '';
+        if (courses.length > 1) {
+          names = '<ul class="mt-course-list">'
+            + courses.map(course => `<li>${escapeHtml(course.course_name || 'Course')}</li>`).join('')
+            + '</ul>';
+        } else if (courses.length === 1) {
+          names = escapeHtml(courses[0].course_name || 'Course');
+        }
+        return `
+          <tr>
+            <td class="mt-day">${escapeHtml(date.day)}<br>${escapeHtml(date.date)}</td>
+            <td class="mt-code">${codes}</td>
+            <td class="mt-name">${names}</td>
+            <td class="mt-time">${escapeHtml(mainTimetableTime(session.session))}</td>
+          </tr>`;
+      }).join('');
+      pages.innerHTML = `
+        <div class="main-tt-page">
+          <div class="main-tt-page-head">
+            <div class="main-tt-seal"><strong>PICT</strong><span>PUNE</span></div>
+            <div class="main-tt-page-titles">
+              <div class="main-tt-society">Society for Computer Technology &amp; Research's</div>
+              <div class="main-tt-college">PUNE INSTITUTE OF COMPUTER TECHNOLOGY</div>
+              <div class="main-tt-affiliation">An Autonomous Institute affiliated to the Savitribai Phule Pune University</div>
+            </div>
+          </div>
+          <div class="main-tt-rule"></div>
+          <h2 class="main-tt-dept-title">${escapeHtml(section.title)}</h2>
+          <div class="main-tt-semester">SEMESTER-V</div>
+          <div class="main-tt-table-wrap">
+            <table class="main-tt-table">
+              <thead>
+                <tr>
+                  <th>Day &amp; Date</th>
+                  <th>Course Code</th>
+                  <th>Name of the Course</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="main-tt-page-foot">
+            <div class="main-tt-sign"><span></span><strong>Controller of Examinations</strong><small>Controller of Examinations (COE)</small></div>
+            <div class="main-tt-seal-big"><strong>PUNE 43</strong><span>INSTITUTE OF COMPUTER TECHNOLOGY</span></div>
+            <div class="main-tt-sign"><span></span><strong>Principal</strong><small>Principal</small></div>
+          </div>
+        </div>`;
+    }
+
+    function currentRunId() {
+      return (G && (G.run_id || G.generation_run_id)) || '';
+    }
+
+    function updateResultActions() {
+      const multi = !!(G && (G.mode === 'multi_department' || G.multi_department === true));
+      const runId = currentRunId();
+      const mainPdfBtn = document.getElementById('mainPdfBtn');
+      const detailedBtn = document.getElementById('detailedPdfBtn');
+      const legacy = document.getElementById('legacyResultActions');
+      const showPdfs = multi && !!runId;
+      if (mainPdfBtn) mainPdfBtn.style.display = showPdfs ? 'inline-flex' : 'none';
+      if (detailedBtn) detailedBtn.style.display = showPdfs ? 'inline-flex' : 'none';
+      if (legacy) legacy.style.display = multi ? 'none' : 'flex';
+    }
+
+    function openRunPdf(detailed) {
+      const runId = currentRunId();
+      if (!runId) {
+        alert('This timetable does not have a generation run attached, so the PDF is not available.');
+        return;
+      }
+      const path = '/generation_runs/' + encodeURIComponent(runId)
+        + (detailed ? '/detailed.pdf' : '/timetable.pdf');
+      window.open(path, '_blank', 'noopener');
     }
 
     function tab(name, btn) {
@@ -1979,26 +2640,65 @@
 
     function confirmSchedule() {
       if (!G) return;
+      const multi = !!(G.mode === 'multi_department' || G.multi_department === true);
       const btn = document.getElementById('confirmBtn');
       const oldText = btn.innerHTML;
+      const runId = currentRunId();
+
+      if (multi && !runId) {
+        alert('This preview is missing its generation run. Generate the timetable again before publishing.');
+        return;
+      }
+
       btn.disabled = true;
       btn.innerHTML = '<span>Publishing...</span>';
 
-      fetch('/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timetable: G.timetable,
-          room_allocation: G.room_allocation,
-          assignments: G.teacher_duties,
-          summary: G.summary,
-          department: document.getElementById('branchSelect').value || 'ALL'
+      const request = multi
+        ? fetch('/confirm_departments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ run_id: runId })
+          })
+        : fetch('/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              timetable: G.timetable,
+              room_allocation: G.room_allocation,
+              assignments: G.teacher_duties,
+              duties: G.duties || [],
+              unassigned_duties: G.unassigned_duties || [],
+              duty_config: G.duty_config || {},
+              summary: G.summary,
+              department: document.getElementById('branchSelect').value || 'ALL'
+            })
+          });
+
+      request
+        .then(async r => {
+          let d = {};
+          try {
+            d = await r.json();
+          } catch (_) {
+            throw new Error('The server returned an unreadable response.');
+          }
+          if (!r.ok) throw new Error(d.error || 'Server error');
+          return d;
         })
-      })
-        .then(r => r.json())
         .then(d => {
           if (d.success) {
-            alert('Schedule confirmed and faculty history updated!' + (d.reset_triggered ? '\n\n🔄 Fairness cycle complete. All flags have been reset.' : ''));
+            let message = multi
+              ? 'All department timetables confirmed and faculty history updated!'
+              : 'Schedule confirmed and faculty history updated!';
+            if (d.reset_triggered) message += '\n\n🔄 Fairness cycle complete. All flags have been reset.';
+            if (d.mail_queued) {
+              message += '\n\nFaculty duty-report emails have been queued.';
+            } else if (d.mail && d.mail.summary && d.mail.summary.message) {
+              message += '\n\nEmail status: ' + d.mail.summary.message;
+            } else if (d.mail && d.mail.reason) {
+              message += '\n\n' + d.mail.reason;
+            }
+            alert(message);
             btn.innerHTML = '<span>Published Successfully ✓</span>';
             btn.style.background = '#10b981';
             btn.disabled = true;
@@ -2010,10 +2710,96 @@
           }
         })
         .catch(err => {
-          alert('Connection error');
+          alert('Publishing failed: ' + err.message);
           btn.disabled = false;
           btn.innerHTML = oldText;
         });
+    }
+
+    function _restoreMailButton(btn, oldText) {
+      if (!btn) return;
+      btn.disabled = false;
+      btn.innerHTML = oldText;
+      btn.style.opacity = '';
+    }
+
+    function _pollMailJob(jobId, btn, oldText, attempt = 0) {
+      if (!jobId) { _restoreMailButton(btn, oldText); return; }
+      setTimeout(async () => {
+        try {
+          const response = await fetch('/admin/mail/jobs/' + encodeURIComponent(jobId));
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Could not read mail job status.');
+          const done = ['completed', 'completed_with_errors', 'failed', 'generated_only'].includes(String(data.status || ''));
+          if (!done) {
+            if (attempt >= 120) {
+              alert('Mail job is still running. You can check /admin/mail/status later.');
+              _restoreMailButton(btn, oldText);
+              return;
+            }
+            _pollMailJob(jobId, btn, oldText, attempt + 1);
+            return;
+          }
+          const summary = data.summary || {};
+          let message = summary.message || ('Mail job finished with status: ' + data.status);
+          if (data.status === 'failed' && data.error) message += '\n\n' + data.error;
+          alert(message);
+          _restoreMailButton(btn, oldText);
+        } catch (error) {
+          alert('Mail status check failed: ' + error.message);
+          _restoreMailButton(btn, oldText);
+        }
+      }, 2500);
+    }
+
+    async function emailTimetableReports() {
+      const btn = document.getElementById('emailFacultyBtn');
+      const oldText = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Queueing...'; }
+      try {
+        const response = await fetch('/admin/mail/timetable', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const missing = data.missing && data.missing.length ? '\nMissing: ' + data.missing.join(', ') : '';
+          throw new Error((data.error || 'Could not start email delivery.') + missing);
+        }
+        const result = data.mail || data;
+        if (result.queued && result.job_id) {
+          alert('Faculty duty-report emails are queued. The job will continue in the background.');
+          _pollMailJob(result.job_id, btn, oldText);
+        } else {
+          alert((result.summary && result.summary.message) || 'Faculty duty-report emails processed.');
+          _restoreMailButton(btn, oldText);
+        }
+      } catch (error) {
+        alert('Email error: ' + error.message);
+        _restoreMailButton(btn, oldText);
+      }
+    }
+
+    async function sendTestDutyEmail() {
+      const btn = document.getElementById('testFacultyMailBtn');
+      const oldText = btn ? btn.innerHTML : '';
+      if (!window.confirm('Send one sample faculty duty report to the configured test recipient?')) return;
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Sending...'; }
+      try {
+        const response = await fetch('/admin/mail/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const missing = data.missing && data.missing.length ? '\nMissing: ' + data.missing.join(', ') : '';
+          throw new Error((data.error || 'Test email failed.') + missing);
+        }
+        const summary = data.summary || {};
+        let message = summary.message || 'Test email processed.';
+        message += '\n\nTeacher: ' + data.teacher_id;
+        if (data.test_recipient) message += '\nDelivered to test recipient: ' + data.test_recipient;
+        if (data.dry_run) message += '\nDry-run mode: an .eml file was written instead of using SMTP.';
+        alert(message);
+      } catch (error) {
+        alert('Test email error: ' + error.message);
+      } finally {
+        _restoreMailButton(btn, oldText);
+      }
     }
 
 
@@ -2145,6 +2931,7 @@
           alert(d.message);
           closeAdjustmentModal();
           refreshTeacherDuties(teacher_id);
+          loadTeacherRequests();
         })
         .catch(error => {
           err.textContent = error.message;
@@ -2171,21 +2958,26 @@
     let currentAlternatives = null;
 
     function showAdminSection(section) {
+      if (section === 'timetable') section = 'main'; // Backwards compatibility.
       const navGen = document.getElementById('navGenerator');
-      const navTt = document.getElementById('navTimetable');
+      const navMain = document.getElementById('navMainTimetable');
+      const navDetailed = document.getElementById('navDetailedTimetable');
       const navAdj = document.getElementById('navAdjustments');
       const genView = document.getElementById('generatorView');
+      const mainView = document.getElementById('mainTimetableView');
       const ttView = document.getElementById('timetableView');
       const adjView = document.getElementById('adjustmentsView');
 
       if (navGen) navGen.classList.toggle('active', section === 'generator');
-      if (navTt) navTt.classList.toggle('active', section === 'timetable');
+      if (navMain) navMain.classList.toggle('active', section === 'main');
+      if (navDetailed) navDetailed.classList.toggle('active', section === 'detailed');
       if (navAdj) navAdj.classList.toggle('active', section === 'adjustments');
 
       if (genView) genView.style.display = section === 'generator' ? 'grid' : 'none';
+      if (mainView) mainView.style.display = section === 'main' ? 'block' : 'none';
       if (ttView) {
-        ttView.style.display = section === 'timetable' ? 'block' : 'none';
-        if (section === 'timetable') {
+        ttView.style.display = section === 'detailed' ? 'block' : 'none';
+        if (section === 'detailed') {
           setTimeout(() => moveInd(document.querySelector('.ptab.on')), 60);
         }
       }
@@ -2214,11 +3006,16 @@
             tr.className = 'ri';
 
             const fileLink = r.file_path ? `<a href="/uploads/${r.file_path}" target="_blank" class="ulink" style="font-weight:600;">View File 📄</a>` : 'No file';
-            const commentsText = r.comments ? `<br><small style="color:var(--txt-dim)">Note: ${r.comments}</small>` : '';
-            const statusChip = `<span class="stag" style="background:${r.status === 'Pending' ? 'rgba(245,158,11,.1)' : r.status === 'Approved' ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.1)'}; color:${r.status === 'Pending' ? '#d97706' : r.status === 'Approved' ? '#10b981' : '#ef4444'}; font-weight:700;">${r.status}</span>${commentsText}`;
+            const commentsText = r.comments ? `<br><small style="color:var(--txt-dim)">Note: ${escapeHtml(r.comments)}</small>` : '';
+            const statusKey = String(r.status_key || r.status || '').toLowerCase();
+            const isPending = ['pending', 'parsed'].includes(statusKey);
+            const isApproved = ['approved', 'applied'].includes(statusKey);
+            const statusColor = isPending ? '#d97706' : isApproved ? '#10b981' : statusKey === 'processing' ? '#2563eb' : '#ef4444';
+            const statusBg = isPending ? 'rgba(245,158,11,.1)' : isApproved ? 'rgba(16,185,129,.1)' : statusKey === 'processing' ? 'rgba(59,130,246,.1)' : 'rgba(239,68,68,.1)';
+            const statusChip = `<span class="stag" style="background:${statusBg}; color:${statusColor}; font-weight:700;">${escapeHtml(r.status_label || r.status)}</span>${commentsText}`;
 
             let actionHtml = '—';
-            if (r.status === 'Pending') {
+            if (isPending) {
               actionHtml = `
                 <div style="display:flex; gap:8px;">
                   <button class="cta" style="padding:6px 12px; font-size:12px; border-radius:8px; box-shadow:none; background:var(--acc-ind);" onclick="openCoordinatorApprovalModal('${r._id}', '${r.teacher_id}', '${r.teacher_name}', '${r.current_date}', '${r.current_slot}', '${r.current_session}')">
@@ -2271,10 +3068,25 @@
       document.getElementById('coordinatorApprovalModal').style.display = 'flex';
 
       fetch(`/adjustments/alternatives?request_id=${reqId}`)
-        .then(r => r.json())
+        .then(async response => {
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Unable to load swap alternatives');
+          return data;
+        })
         .then(d => {
           currentAlternatives = d;
           populateRescheduleOptions();
+          const moveTab = document.getElementById('rescheduleTabMove');
+          if (!d.direct_move_allowed) {
+            if (moveTab) {
+              moveTab.style.display = 'none';
+              moveTab.disabled = true;
+            }
+            if (activeRescheduleTab === 'move') switchRescheduleTab('swap');
+          } else if (moveTab) {
+            moveTab.style.display = '';
+            moveTab.disabled = false;
+          }
         })
         .catch(err => {
           document.getElementById('coordinatorModalError').textContent = 'Failed to load alternatives: ' + err.message;
@@ -2325,10 +3137,14 @@
       if (!currentAlternatives) return;
 
       const swapSelect = document.getElementById('swapPartnerSelect');
+      const preferenceNote = document.getElementById('swapPreferenceMatchNote');
       swapSelect.innerHTML = '<option value="" disabled selected>Select a swap partner</option>';
       if (currentAlternatives.swap_options.length === 0) {
         swapSelect.innerHTML = '<option value="" disabled>No compatible swap partners found</option>';
+        preferenceNote.style.color = '#dc2626';
+        preferenceNote.textContent = currentAlternatives.message || 'No compatible same-role swap is available for this request.';
       } else {
+        preferenceNote.style.color = '#10b981';
         currentAlternatives.swap_options.forEach((opt, idx) => {
           const matchNote = opt.pref_score === 2 ? '★ Both prefer' : opt.pref_score === 1 ? '✦ One prefers' : 'No preference match';
           const optionText = `${opt.teacher_name} - ${opt.date} (Slot ${opt.slot}) [${matchNote}]`;
@@ -2419,7 +3235,15 @@
           return d;
         })
         .then(d => {
-          alert(d.message);
+          let message = d.message || 'Adjustment approved.';
+          const reportInfo = d.daily_reports || {};
+          if (reportInfo.generated) {
+            message += '\n\nDaily change report generated for: ' + (reportInfo.report_dates || []).join(', ') + '.';
+          }
+          if (d.mail_queued) {
+            message += '\n\nDaily change report email queued.';
+          }
+          alert(message);
           closeCoordinatorApprovalModal();
           loadAdjustments();
           checkConfirmedTimetable();
@@ -2482,6 +3306,10 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      if (document.getElementById('modeSelect')) {
+        stepMode();
+        updateResultActions();
+      }
       const modalUzone = document.getElementById('modalUzone');
       if (modalUzone) {
         modalUzone.addEventListener('dragover', e => {

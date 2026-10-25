@@ -66,7 +66,7 @@ class Tests(unittest.TestCase):
     def test_teacher_years_come_from_mongodb(self):
         class FakeCollection:
             def find(self, *args, **kwargs):
-                return [{"teacher_id": "T001", "department": "IT", "teaching_years": ["FY"], "preferred_slots": ["1"]}]
+                return [{"teacher_id": "T001", "department": "IT", "teaching_years": [], "preferred_slots": ["1"]}]
 
         class FakeDB:
             def __getitem__(self, key):
@@ -78,9 +78,13 @@ class Tests(unittest.TestCase):
         try:
             with patch.dict(sys.modules, {"db": fake_db}):
                 teachers = load_teacher_data(path)
-            self.assertEqual(teachers["T001"]["teaching_years"], {"FY"})
+            # An empty teaching_years list means "use the department policy",
+            # never "no invigilation".
+            self.assertEqual(teachers["T001"]["teaching_years"], {"SY", "TY", "BTECH"})
             self.assertNotIn("teaching_year", teachers["T001"])
         finally:
+            import gc
+            gc.collect()
             Path(path).unlink(missing_ok=True)
 
     def test_rooms(self):

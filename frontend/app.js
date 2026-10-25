@@ -121,11 +121,11 @@ window.fetch=async (input,init={})=>{
         tabAdmin.style.boxShadow = 'none';
         
         loginTitle.textContent = 'Faculty Login';
-        loginSubtitle.textContent = 'Sign in with your PICT institutional credentials';
+        loginSubtitle.textContent = 'Sign in with your @pict.edu institutional email';
         emailLabel.textContent = 'Institutional Email';
-        emailInput.placeholder = 'T1@pict.edu';
-        emailHelp.textContent = 'Format: YourTeacherID@pict.edu';
-        passwordInput.placeholder = 'Default: your Teacher ID (e.g. T1)';
+        emailInput.placeholder = 't001@pict.edu';
+        emailHelp.textContent = 'Format: Teacher ID + @pict.edu (e.g. t001@pict.edu)';
+        passwordInput.placeholder = 'Default password: your Teacher ID (e.g. t001)';
       } else {
         tabAdmin.style.background = 'var(--surface)';
         tabAdmin.style.color = 'var(--txt-main)';
@@ -158,7 +158,7 @@ window.fetch=async (input,init={})=>{
       }
       // Client-side domain validation
       if (!email.toLowerCase().endsWith('@pict.edu')) {
-        err.textContent = 'Email must end with @pict.edu (e.g. T1@pict.edu)';
+        err.textContent = 'Email must end with @pict.edu (e.g. t001@pict.edu)';
         return;
       }
       if (!password) {

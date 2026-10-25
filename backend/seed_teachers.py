@@ -116,10 +116,11 @@ def seed():
 
     for t in test_teachers:
         t_id = t["teacher_id"]
-        # Never create teacher-ID-derived passwords. A coordinator must initialize a strong password.
+        email = t["email"].strip().lower()
+        default_password = t_id.strip().lower()
         doc = {
             "teacher_id": t_id,
-            "email": t["email"],
+            "email": email,
             "name": t["name"],
             "role": t["role"],
             "department": t["department"],
@@ -129,12 +130,12 @@ def seed():
             "duty_counts": {"squad": 0, "junior": 0, "senior": 0},
             "last_role": "N/A",
             "history": [],
-            "password_hash": None,
+            "password_hash": generate_password_hash(default_password),
             "password_changed": False,
             "is_admin": False
         }
 
-        existing = teachers_col.find_one({"$or": [{"teacher_id": t_id}, {"email": t["email"]}]})
+        existing = teachers_col.find_one({"$or": [{"teacher_id": t_id}, {"email": email}]})
         if not existing:
             teachers_col.insert_one(doc)
             print(f" [+] Inserted Teacher {t_id}: {t['name']} ({t['role']} - {t['department']})")
@@ -143,7 +144,7 @@ def seed():
             # Update fields while ensuring proper defaults
             update_data = {
                 "teacher_id": t_id,
-                "email": t["email"],
+                "email": email,
                 "name": t["name"],
                 "role": t["role"],
                 "department": t["department"],
@@ -153,8 +154,9 @@ def seed():
                 update_data["duty_counts"] = {"squad": 0, "junior": 0, "senior": 0}
             if "history" not in existing:
                 update_data["history"] = []
-            # Missing passwords remain unset; use migrate_users.py with a strong
-            # MIGRATION_DEFAULT_PASSWORD for legacy account initialization.
+            if not existing.get("password_hash"):
+                update_data["password_hash"] = generate_password_hash(default_password)
+                update_data["password_changed"] = False
 
             teachers_col.update_one({"_id": existing["_id"]}, {"$set": update_data})
             print(f" [~] Updated Teacher {t_id}: {t['name']}")
@@ -162,7 +164,7 @@ def seed():
 
     print(f"\nSeeding Complete! Seeded: {seeded_count}, Updated: {updated_count}")
     print(f"Total teachers in DB: {teachers_col.count_documents({})}")
-    print("\nTeacher accounts seeded without default passwords. Initialize missing passwords with migrate_users.py using MIGRATION_DEFAULT_PASSWORD.")
+    print("\nTeacher login email: <lowercase teacher id>@pict.edu; default password: <lowercase teacher id>.")
 
 if __name__ == "__main__":
     seed()

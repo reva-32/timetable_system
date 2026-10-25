@@ -22,10 +22,23 @@ import pandas as pd
 import os
 import csv
 import sys
+from datetime import datetime
 from itertools import combinations
 from tabulate import tabulate
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+from eligibility import (
+    normalize_year,
+    normalize_role,
+    effective_teaching_years,
+    teacher_can_invigilate as _teacher_can_invigilate,
+    department_matches,
+)
+
+try:
+    MAX_DUTIES = max(1, int(os.getenv("MAX_DUTIES", "5")))
+except (TypeError, ValueError):
+    MAX_DUTIES = 5
 
 # ================================================
 # CORE ALGORITHM LOGIC
@@ -92,17 +105,11 @@ def dsatur_coloring(graph):
     return result
 
 
-def normalize_year(value):
-    """Normalize FY/SY/TY/B.Tech labels to canonical year names."""
-    v = safe_str(value, default="ALL").upper().replace(" ", "").replace("-", "")
-    aliases = {
-        "1": "FY", "FY": "FY", "FIRST": "FY", "FIRSTYEAR": "FY",
-        "2": "SY", "SY": "SY", "SECOND": "SY", "SECONDYEAR": "SY",
-        "3": "TY", "TY": "TY", "THIRD": "TY", "THIRDYEAR": "TY",
-        "4": "BTECH", "B.TECH": "BTECH", "BTECH": "BTECH", "BT": "BTECH",
-        "FINAL": "BTECH", "FINALYEAR": "BTECH", "4TH": "BTECH"
-    }
-    return aliases.get(v, v)
+def normalize_teacher_years(value):
+    """Backward-compatible helper used by the API layer."""
+    return {normalize_year(v) for v in (value or []) if safe_str(v, default="")}
+
+
 
 def validate_schedule(final_data, student_courses):
     course_slot = {str(r.get("course_id")): (str(r.get("date", "")), str(r.get("slot", ""))) for r in final_data}
@@ -136,8 +143,19 @@ def adjust_exam_dates(final_data, student_courses, slot_meta):
             course_to_students.setdefault(str(course), set()).add(str(student))
     row_by_course = {str(r["course_id"]): r for r in final_data}
     moved = []
+    seen_states = set()
+    max_moves = max(10, len(final_data) * 3)
+    moves_made = 0
     changed = True
-    while changed:
+    while changed and moves_made < max_moves:
+        state = tuple(sorted(
+            (str(row.get("course_id")), str(row.get("date")), str(row.get("slot")))
+            for row in final_data
+        ))
+        if state in seen_states:
+            break
+        seen_states.add(state)
+        changed = False
         changed = False
         for student, courses in student_courses.items():
             by_date = {}
@@ -171,6 +189,7 @@ def adjust_exam_dates(final_data, student_courses, slot_meta):
                     row.update(old)
                     continue
                 moved.append({"course_id": row["course_id"], "from": original, "to": target})
+                moves_made += 1
                 changed = True
                 break
             if changed:
@@ -308,11 +327,14 @@ def load_data(filepath):
 
         course_metadata[c_id] = {
             "course_name"    : safe_str(get_col(row, ["course_name", "coursename", "name", "subject", "title"]), default="Unknown"),
+            "course_code"    : safe_str(get_col(row, ["course_code", "coursecode", "subject_code", "subjectcode", "code"]), default=c_id),
             "year"           : safe_id(get_col(row, ["year", "Year", "academic_year"]), default="N/A"),
             "students_count" : declared,
             "department"     : safe_str(get_col(row, ["department", "dept", "branch"]), default="General"),
             "exam_date"      : exam_date_str,
-            "session"        : session
+            "session"        : session,
+            "exam_category"  : safe_str(get_col(row, ["exam_category", "examcategory", "category", "paper_type", "papertype", "component"]), default=""),
+            "exam_order"     : safe_id(get_col(row, ["exam_order", "examorder", "sequence", "order", "sort_order"]), default=""),
         }
 
     return student_courses, slot_metadata, course_metadata, enrolled_counts
@@ -439,7 +461,7 @@ def load_teacher_data(filepath, preferences_filepath=None):
                     pass
 
             t_name = safe_str(get_col(row, ["name", "teacher_name", "faculty_name", 1]), default=f"Prof. {t_id}")
-            t_role = safe_str(get_col(row, ["role", "designation", 2]), default="Junior")
+            t_role = normalize_role(safe_str(get_col(row, ["role", "designation", 2]), default="Junior"))
             t_dept = safe_str(get_col(row, ["department", "dept", "branch", 3]), default="IT")
 
             teachers[t_id] = {
@@ -514,9 +536,18 @@ def load_teacher_data(filepath, preferences_filepath=None):
                 mongo_by_id[str(tid)] = doc
         for tid, teacher in teachers.items():
             doc = mongo_by_id.get(str(tid), {})
-            teacher["teaching_years"] = {normalize_year(v) for v in (doc.get("teaching_years") or [])}
-            if doc.get("department"):
-                teacher["department"] = safe_str(doc.get("department"), default=teacher.get("department", "General"))
+            teacher["department"] = safe_str(doc.get("department"), default=teacher.get("department", "General"))
+            teacher["role"] = normalize_role(doc.get("role") or teacher.get("role", "Junior"))
+            # Department policy is authoritative; teaching_years only narrows it.
+            teacher["teaching_years"] = effective_teaching_years({
+                "department": teacher.get("department"),
+                "teaching_years": doc.get("teaching_years"),
+            })
+            try:
+                teacher["max_duties"] = int(doc.get("max_duties") or MAX_DUTIES)
+            except (TypeError, ValueError):
+                teacher["max_duties"] = MAX_DUTIES
+            teacher["pinned_duties"] = clean_pinned_duties(doc.get("pinned_duties"))
             teacher["preferred_slots"] = set(teacher.get("preferred_slots", set())) | {str(x) for x in (doc.get("preferred_slots") or [])}
     except Exception as exc:
         raise RuntimeError("Unable to load teacher eligibility from MongoDB") from exc
@@ -524,8 +555,97 @@ def load_teacher_data(filepath, preferences_filepath=None):
     return teachers
 
 
+def clean_pinned_duties(raw):
+    """Normalize coordinator-pinned duties read from MongoDB."""
+    pinned = []
+    if not isinstance(raw, list):
+        return pinned
+    for item in raw:
+        if not isinstance(item, dict) or not item.get("date"):
+            continue
+        slot = item.get("slot")
+        if slot is None:
+            continue
+        pinned.append({
+            "date": str(item.get("date")).strip(),
+            "slot": str(slot).strip(),
+            "role": normalize_role(item.get("role") or "Junior"),
+            "course_id": str(item.get("course_id") or "ALL"),
+        })
+    return pinned
 
-def build_duties(final_data, room_assignments=None):
+
+
+def _date_sort_key(value):
+    try:
+        parsed = pd.to_datetime(str(value), dayfirst=True, errors="coerce")
+        if not pd.isna(parsed):
+            return parsed.to_pydatetime()
+    except Exception:
+        pass
+    return datetime.max
+
+
+def _as_non_negative_int(value, default=0):
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_duty_config(config=None):
+    """Normalize the per-session duty demand configuration.
+
+    ``js_per_session`` is a minimum number of Junior Supervisor duties per
+    session (room duties are always kept; extra roaming duties are added).
+    ``squad_per_session`` is the exact Internal Squad demand per session.
+    ``last_day_squad`` optionally overrides the Squad demand on the final day.
+    ``overrides`` accepts ``{"date|session": {"js": 3, "squad": 1}}`` or
+    ``{"date": {"js": 3, "squad": 1}}``.
+    """
+    config = config or {}
+    if not isinstance(config, dict):
+        config = {}
+
+    def read_int(container, names, default):
+        for name in names:
+            if name in container and container.get(name) is not None:
+                return _as_non_negative_int(container.get(name), default)
+        return default
+
+    overrides = {}
+    raw_overrides = config.get("overrides") or {}
+    if isinstance(raw_overrides, str):
+        try:
+            import json
+            raw_overrides = json.loads(raw_overrides)
+        except (TypeError, ValueError):
+            raw_overrides = {}
+    if isinstance(raw_overrides, dict):
+        for key, value in raw_overrides.items():
+            if not isinstance(value, dict):
+                continue
+            overrides[str(key).strip()] = {
+                "js": read_int(value, ["js", "js_per_session", "junior", "junior_supervisors"], 0),
+                "squad": read_int(value, ["squad", "squad_per_session", "internal_squad"], 0),
+            }
+
+    return {
+        "js_per_session": read_int(config, ["js_per_session", "js", "junior_per_session"], 0),
+        "squad_per_session": read_int(config, ["squad_per_session", "squad"], 9),
+        "last_day_squad": read_int(config, ["last_day_squad", "last_day_squad_per_session"], 2),
+        "overrides": overrides,
+    }
+
+
+def build_duties(final_data, room_assignments=None, duty_config=None):
+    """Generate all invigilation duties, including configurable JS/Squad demand.
+
+    Junior (JS) duties are one per allocated room.  A per-session minimum can
+    add roaming JS seats.  Senior demand is one per session; Internal Squad
+    demand is configured per session (with a separate last-day value).
+    """
+    config = normalize_duty_config(duty_config)
     duties = []
     duty_id = 1
     course_rooms = {}
@@ -535,191 +655,350 @@ def build_duties(final_data, room_assignments=None):
             key = (a["course_id"], a["slot"], a.get("date"))
             course_rooms[key] = [r.strip() for r in str(a["rooms_assigned"]).split(",") if r.strip() != "None"]
 
+    session_meta = {}
     for row in final_data:
-        key = (row["course_id"], row["slot"], row.get("date"))
+        date_value = row.get("date")
+        session_value = row.get("session") or "TBD"
+        session_key = (date_value, session_value)
+        meta = session_meta.setdefault(session_key, {
+            "slot": row.get("slot"),
+            "years": set(),
+            "departments": set(),
+            "junior_count": 0,
+        })
+        year = normalize_year(row.get("year", "ALL"))
+        if year in {"FY", "SY", "TY", "BTECH"}:
+            meta["years"].add(year)
+        department = safe_str(row.get("department"), default="General")
+        if department.upper() not in {"GENERAL", "COMMON", "SHARED", ""}:
+            meta["departments"].add(department)
+
+        key = (row["course_id"], row["slot"], date_value)
         rooms = course_rooms.get(key, ["TBD"])
         for room in rooms:
             duties.append({
-                "duty_id": duty_id, "slot": row["slot"], "date": row["date"],
-                "session": row["session"], "course_id": row["course_id"],
-                "year": normalize_year(row.get("year", "ALL")),
-                "department": row.get("department", "General"),
-                "room": room, "role_required": "Junior"
+                "duty_id": duty_id,
+                "slot": row["slot"],
+                "date": date_value,
+                "session": session_value,
+                "course_id": row["course_id"],
+                "year": year,
+                "department": department,
+                "room": room,
+                "role_required": "Junior",
+                "allowed_years": [year] if year != "ALL" else [],
+            })
+            meta["junior_count"] += 1
+            duty_id += 1
+
+    if not session_meta:
+        return duties
+
+    dated_sessions = sorted(session_meta.keys(), key=lambda key: (_date_sort_key(key[0]), str(key[0]), str(key[1])))
+    sorted_dates = sorted({key[0] for key in dated_sessions}, key=_date_sort_key)
+    last_date = sorted_dates[-1] if sorted_dates else None
+
+    for (date_value, session_value) in dated_sessions:
+        meta = session_meta[(date_value, session_value)]
+        scope_years = sorted(meta["years"])
+        if not scope_years:
+            scope_years = ["FY", "SY", "TY", "BTECH"]
+        override = config["overrides"].get(f"{date_value}|{session_value}")
+        if override is None:
+            override = config["overrides"].get(str(date_value))
+        is_last_day = str(date_value) == str(last_date)
+
+        if override is not None:
+            js_target = override.get("js", 0)
+            squad_target = override.get("squad", 0)
+        else:
+            js_target = config["js_per_session"]
+            squad_target = config["last_day_squad"] if is_last_day else config["squad_per_session"]
+
+        extra_js = max(0, js_target - meta["junior_count"])
+        for _ in range(extra_js):
+            duties.append({
+                "duty_id": duty_id,
+                "slot": meta["slot"],
+                "date": date_value,
+                "session": session_value,
+                "course_id": "ALL",
+                "year": "ALL",
+                "allowed_years": scope_years,
+                "department": "General",
+                "room": "Roaming",
+                "role_required": "Junior",
             })
             duty_id += 1
 
-    # Add Senior and Squad duties per unique (date, slot) pair
-    seen_slots = set()
-    for row in final_data:
-        slot_key = (row.get("date"), row.get("slot"))
-        if slot_key not in seen_slots:
-            for role in ["Senior", "Squad"]:
-                duties.append({
-                    "duty_id": duty_id, "slot": row["slot"], "date": row["date"],
-                    "session": row["session"], "course_id": "ALL",
-                    "year": "ALL", "department": "General",
-                    "room": "Control" if role=="Senior" else "Roaming",
-                    "role_required": role
-                })
-                duty_id += 1
-            seen_slots.add(slot_key)
+        duties.append({
+            "duty_id": duty_id,
+            "slot": meta["slot"],
+            "date": date_value,
+            "session": session_value,
+            "course_id": "ALL",
+            "year": "ALL",
+            "allowed_years": scope_years,
+            "department": "General",
+            "room": "Control",
+            "role_required": "Senior",
+        })
+        duty_id += 1
+
+        for _ in range(squad_target):
+            duties.append({
+                "duty_id": duty_id,
+                "slot": meta["slot"],
+                "date": date_value,
+                "session": session_value,
+                "course_id": "ALL",
+                "year": "ALL",
+                "allowed_years": scope_years,
+                "department": "General",
+                "room": "Roaming",
+                "role_required": "Squad",
+            })
+            duty_id += 1
+
     return duties
 
 
-def _department_matches(teacher_department, duty_department):
-    t = str(teacher_department or "General").strip().upper()
-    d = str(duty_department or "General").strip().upper()
-    if t in {"GENERAL", "COMMON", "SHARED", ""} or d in {"GENERAL", "COMMON", "SHARED", ""}:
-        return True
-    aliases = {
-        "CE": {"CE", "COMPUTER", "COMPUTER ENGINEERING", "COMP"},
-        "IT": {"IT", "INFORMATION TECHNOLOGY", "INFO TECH"},
-        "ENTC": {"ENTC", "E&TC", "ELECTRONICS"},
-        "AIDS": {"AIDS", "AI&DS", "AI", "DATA SCIENCE", "DS"},
-    }
-    def canon(value):
-        for key, values in aliases.items():
-            if value in values:
-                return key
-        return value
-    return canon(t) == canon(d)
-
 def teacher_can_invigilate(teacher, duty):
-    allowed = set(teacher.get("teaching_years", set()))
-    year = normalize_year(duty.get("year", "ALL"))
-    return ("ALL" in allowed or year in allowed) and _department_matches(teacher.get("department"), duty.get("department"))
+    """Thin wrapper so callers importing from main keep working."""
+    return _teacher_can_invigilate(teacher, duty)
+
 
 def compute_cost(teacher, duty, teacher_duty_count, fairness_map=None, db_duty_counts=None, MAX_DUTIES=5):
     INF = 10_000
-    if teacher["role"] != duty["role_required"] or not teacher_can_invigilate(teacher, duty): return INF
-    
-    # Past duties from database
+    if teacher["role"] != duty["role_required"] or not teacher_can_invigilate(teacher, duty):
+        return INF
+
+    # Past duties from database (used to spread load across examination
+    # cycles).  The per-teacher cap applies to duties assigned in this run,
+    # not to the lifetime count, otherwise a teacher would become permanently
+    # ineligible after a few cycles.
     past_duties_dict = db_duty_counts.get(teacher["id"], {}) if db_duty_counts else {}
     past_total = sum(past_duties_dict.values())
-    
-    # Replicated instance number indicates how many duties are being assigned in this pass.
-    # Total duty count = past database duties + instance number
+
     inst = teacher.get("instance", 0)
     total_duty_count = past_total + inst
-    
-    if total_duty_count >= MAX_DUTIES:
+    max_duties = teacher.get("max_duties", MAX_DUTIES)
+
+    if inst >= max_duties:
         return INF
-    
+
     cost = 10
     if duty["role_required"] in ["Senior", "Squad"] and fairness_map:
-        if not fairness_map.get(teacher["id"], True): cost = 0.5
-        else: cost = 5
-    
-    if duty["slot"] in teacher.get("preferred_slots", set()) or str(duty["slot"]) in [str(p) for p in teacher.get("preferred_slots", set())]:
+        if not fairness_map.get(teacher["id"], True):
+            cost = 0.5
+        else:
+            cost = 5
+
+    preferred = {str(p) for p in teacher.get("preferred_slots", set())}
+    if str(duty["slot"]) in preferred:
         cost = min(cost, 1)
-    
+
     # Penalty of 100 * total_duty_count to load-balance
     cost += total_duty_count * 100
     return cost
 
 
-def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None, MAX_DUTIES=5):
-    """
-    Improved teacher assignment using role-batching and Hungarian matching with greedy fill fallback.
+def _duty_key(date_value, slot_value):
+    return (str(date_value).strip(), str(slot_value).strip())
+
+
+def _history_dates_by_teacher(faculty_status):
+    """Dates on which each teacher already has a duty (prevents two per day)."""
+    busy = {}
+    for tid, doc in (faculty_status or {}).items():
+        dates = set()
+        for entry in (doc.get("history") or []):
+            if entry.get("exam_date"):
+                dates.add(str(entry.get("exam_date")))
+        busy[str(tid)] = dates
+    return busy
+
+
+def assign_teachers(teachers, duties, fairness_map=None, db_duty_counts=None,
+                    MAX_DUTIES=5, faculty_status=None, admin_keys=None):
+    """Assign duties with one-duty-per-day and per-teacher caps.
+
+    The old implementation built a square Hungarian matrix with several
+    "instances" per teacher and then dropped assignments that clashed on the
+    same day.  This version assigns each date independently, so a teacher can
+    never receive two duties on one date and load is balanced against a target
+    of ``ceil(total_duties / eligible_teachers)``.
     """
     INF = 10_000
     assignments = []
     assigned_duty_ids = set()
-    teacher_duty_count = {tid: 0 for tid in teachers}
-    
-    # Exclude admins before building the matrix
-    admin_keys = set()
-    try:
-        from db import get_db
-        db_conn = get_db()
-        admin_docs = list(db_conn["teachers"].find({"is_admin": True}))
-        for doc in admin_docs:
-            if doc.get("teacher_id"):
-                admin_keys.add(doc["teacher_id"])
-            if doc.get("email"):
-                admin_keys.add(doc["email"])
-    except Exception as e:
-        print(f"Error querying admins for exclusion: {e}")
+    teacher_duty_count = {}
 
-    from collections import defaultdict
-    duties_by_role = defaultdict(list)
-    for d in duties: duties_by_role[d["role_required"]].append(d)
+    if admin_keys is None:
+        admin_keys = set()
+        try:
+            from db import get_db
+            db_conn = get_db()
+            for doc in db_conn["teachers"].find({"is_admin": True}):
+                if doc.get("teacher_id"):
+                    admin_keys.add(str(doc["teacher_id"]))
+                if doc.get("email"):
+                    admin_keys.add(str(doc["email"]))
+        except Exception as exc:
+            print(f"Error querying admins for exclusion: {exc}")
+    admin_keys = {str(key) for key in admin_keys}
+
+    busy_dates = _history_dates_by_teacher(faculty_status)
+    base_counts = {}
+    for teacher in teachers.values():
+        tid = str(teacher["id"])
+        counts = (db_duty_counts or {}).get(tid, {})
+        if isinstance(counts, dict):
+            base_counts[tid] = sum(_as_non_negative_int(value, 0) for value in counts.values())
+        else:
+            base_counts[tid] = _as_non_negative_int(counts, 0)
+        teacher_duty_count[tid] = 0
+
+    def append_assignment(duty, teacher, cost=10, pinned=False):
+        tid = str(teacher["id"])
+        assignments.append({
+            "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
+            "session": duty["session"], "course_id": duty["course_id"],
+            "room": duty["room"],
+            "role_required": duty["role_required"], "teacher_id": tid,
+            "teacher_name": teacher["name"], "year": duty.get("year", "ALL"),
+            "department": duty.get("department", "General"),
+            "allowed_years": duty.get("allowed_years", []),
+            "pinned": pinned,
+            "cost": int(cost) if cost >= 1 else cost,
+        })
+        assigned_duty_ids.add(duty["duty_id"])
+        teacher_duty_count[tid] += 1
+        busy_dates.setdefault(tid, set()).add(str(duty.get("date")))
+
+    # ---- 1. Pinned duties are assigned first and may exceed the normal cap.
+    pinned_by_duty = {}
+    for teacher in teachers.values():
+        tid = str(teacher["id"])
+        for pin in teacher.get("pinned_duties") or []:
+            key = (_duty_key(pin.get("date"), pin.get("slot")), normalize_role(pin.get("role") or "Junior"))
+            pinned_by_duty.setdefault(key, []).append(tid)
+
+    for duty in sorted(duties, key=lambda item: (_date_sort_key(item.get("date")), str(item.get("slot")))):
+        key = (_duty_key(duty.get("date"), duty.get("slot")), normalize_role(duty.get("role_required")))
+        candidates = pinned_by_duty.get(key) or []
+        for tid in candidates:
+            teacher = teachers.get(tid)
+            if not teacher:
+                continue
+            if tid in admin_keys:
+                continue
+            if normalize_role(teacher.get("role")) != normalize_role(duty.get("role_required")):
+                continue
+            if not teacher_can_invigilate(teacher, duty):
+                # A pin cannot override the year/department rule.
+                continue
+            if duty["duty_id"] in assigned_duty_ids:
+                continue
+            if str(duty.get("date")) in busy_dates.get(tid, set()):
+                # A pinned duty cannot break the one-duty-per-day rule.  The
+                # coordinator must fix the pin; do not silently drop another
+                # duty.
+                continue
+            append_assignment(duty, teacher, cost=0, pinned=True)
+            break
+
+    # ---- 2. Assign the remaining duties, one date at a time.
+    remaining = [duty for duty in duties if duty["duty_id"] not in assigned_duty_ids]
+    duties_by_role = {}
+    for duty in remaining:
+        duties_by_role.setdefault(duty["role_required"], []).append(duty)
 
     for role, role_duties in duties_by_role.items():
         eligible_teachers = [
-            t for t in teachers.values() 
-            if t["role"] == role and t["id"] not in admin_keys
+            teacher for teacher in teachers.values()
+            if normalize_role(teacher.get("role")) == role and str(teacher["id"]) not in admin_keys
         ]
-        if not eligible_teachers: continue
+        if not eligible_teachers:
+            continue
 
-        # Replicate teachers to allow multiple duties in one Hungarian pass
-        expanded_teachers = []
-        for t in eligible_teachers:
-            for inst in range(MAX_DUTIES):
-                expanded_teachers.append({**t, "instance": inst})
+        # Target total load for this role across the whole roster + history.
+        history_total = sum(base_counts.get(str(t["id"]), 0) for t in eligible_teachers)
+        target = int(np.ceil((history_total + len(role_duties)) / max(1, len(eligible_teachers))))
 
-        n_t = len(expanded_teachers)
-        n_d = len(role_duties)
-        size = max(n_t, n_d)
-        cost_matrix = np.full((size, size), INF, dtype=float)
+        duties_by_date = {}
+        for duty in role_duties:
+            duties_by_date.setdefault(str(duty.get("date")), []).append(duty)
 
-        for i, t_inst in enumerate(expanded_teachers):
-            for j, duty in enumerate(role_duties):
-                cost_matrix[i][j] = compute_cost(
-                    t_inst, duty, teacher_duty_count, 
-                    fairness_map=fairness_map, 
-                    db_duty_counts=db_duty_counts,
-                    MAX_DUTIES=MAX_DUTIES
-                )
+        for date_value in sorted(duties_by_date, key=_date_sort_key):
+            date_duties = sorted(duties_by_date[date_value], key=lambda item: str(item.get("slot")))
+            available = []
+            for teacher in eligible_teachers:
+                tid = str(teacher["id"])
+                if date_value in busy_dates.get(tid, set()):
+                    continue
+                if teacher_duty_count.get(tid, 0) >= teacher.get("max_duties", MAX_DUTIES):
+                    continue
+                # Drop teachers who cannot invigilate any duty on this date.
+                if not any(teacher_can_invigilate(teacher, duty) for duty in date_duties):
+                    continue
+                available.append(teacher)
 
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-
-        for r, c in zip(row_ind, col_ind):
-            if r >= n_t or c >= n_d: continue
-            cost = cost_matrix[r][c]
-            if cost >= INF: continue
-
-            teacher = expanded_teachers[r]
-            duty = role_duties[c]
-
-            # Collision check: same teacher, same slot & date
-            if any(a["teacher_id"] == teacher["id"] and a["slot"] == duty["slot"] and a.get("date") == duty.get("date") for a in assignments):
+            if not available:
                 continue
 
-            teacher_duty_count[teacher["id"]] += 1
-            assigned_duty_ids.add(duty["duty_id"])
-            assignments.append({
-                "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
-                "session": duty["session"], "course_id": duty["course_id"],
-                "room": duty["room"],
-                "role_required": duty["role_required"], "teacher_id": teacher["id"],
-                "teacher_name": teacher["name"], "year": duty.get("year", "ALL"),
-                "department": duty.get("department", "General"), "cost": int(cost) if cost >= 1 else cost
-            })
+            n_teachers = len(available)
+            n_duties = len(date_duties)
+            cost_matrix = np.full((n_teachers, n_duties), INF, dtype=float)
+            for row_idx, teacher in enumerate(available):
+                tid = str(teacher["id"])
+                current_load = base_counts.get(tid, 0) + teacher_duty_count.get(tid, 0)
+                for col_idx, duty in enumerate(date_duties):
+                    if normalize_role(teacher.get("role")) != duty["role_required"]:
+                        continue
+                    if not teacher_can_invigilate(teacher, duty):
+                        continue
+                    cost = 10
+                    if duty["role_required"] in {"Senior", "Squad"} and fairness_map:
+                        cost = 0.5 if not fairness_map.get(tid, True) else 5
+                    preferred = {str(p) for p in teacher.get("preferred_slots", set())}
+                    if str(duty["slot"]) in preferred:
+                        cost = min(cost, 1)
+                    cost += current_load * 100
+                    if current_load >= target:
+                        cost += (current_load - target + 1) * 250
+                    cost_matrix[row_idx][col_idx] = cost
 
-        # Fallback pass for any unassigned duties in this role
-        unassigned_in_role = [d for d in role_duties if d["duty_id"] not in assigned_duty_ids]
-        for duty in unassigned_in_role:
-            # Find an eligible teacher free in that (date, slot) with least current duties
-            free_candidates = [
-                t for t in eligible_teachers
-                if teacher_can_invigilate(t, duty)
-                and not any(a["teacher_id"] == t["id"] and a["slot"] == duty["slot"] and a.get("date") == duty.get("date") for a in assignments)
-                and (teacher_duty_count[t["id"]] + (sum(db_duty_counts.get(t["id"], {}).values()) if db_duty_counts else 0)) < MAX_DUTIES
-            ]
-            if free_candidates:
-                # Pick teacher with lowest duties so far
-                best_t = min(free_candidates, key=lambda t: teacher_duty_count[t["id"]])
-                teacher_duty_count[best_t["id"]] += 1
-                assigned_duty_ids.add(duty["duty_id"])
-                assignments.append({
-                    "duty_id": duty["duty_id"], "slot": duty["slot"], "date": duty["date"],
-                    "session": duty["session"], "course_id": duty["course_id"],
-                    "room": duty["room"],
-                    "role_required": duty["role_required"], "teacher_id": best_t["id"],
-                    "teacher_name": best_t["name"], "year": duty.get("year", "ALL"),
-                    "department": duty.get("department", "General"), "cost": 10
-                })
+            row_ind, col_ind = linear_sum_assignment(cost_matrix)
+            for row_idx, col_idx in zip(row_ind, col_ind):
+                if cost_matrix[row_idx][col_idx] >= INF:
+                    continue
+                teacher = available[row_idx]
+                duty = date_duties[col_idx]
+                if duty["duty_id"] in assigned_duty_ids:
+                    continue
+                append_assignment(duty, teacher, cost=cost_matrix[row_idx][col_idx])
+            # Safety: a teacher can only appear once per date.
+            seen_teacher_ids = {str(a["teacher_id"]) for a in assignments if str(a.get("date")) == date_value}
+            for duty in date_duties:
+                if duty["duty_id"] in assigned_duty_ids:
+                    continue
+                fallback = [
+                    teacher for teacher in eligible_teachers
+                    if str(teacher["id"]) not in seen_teacher_ids
+                    and str(teacher["id"]) not in admin_keys
+                    and date_value not in busy_dates.get(str(teacher["id"]), set())
+                    and teacher_can_invigilate(teacher, duty)
+                    and teacher_duty_count.get(str(teacher["id"]), 0)
+                        < teacher.get("max_duties", MAX_DUTIES)
+                ]
+                if fallback:
+                    best = min(
+                        fallback,
+                        key=lambda t: (base_counts.get(str(t["id"]), 0) + teacher_duty_count.get(str(t["id"]), 0)),
+                    )
+                    append_assignment(duty, best, cost=10)
+                    seen_teacher_ids.add(str(best["id"]))
 
-    unassigned = [d for d in duties if d["duty_id"] not in assigned_duty_ids]
+    unassigned = [duty for duty in duties if duty["duty_id"] not in assigned_duty_ids]
     return assignments, unassigned, teacher_duty_count

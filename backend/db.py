@@ -3,12 +3,23 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from eligibility import (
+    effective_teaching_years,
+    normalize_role,
+    normalize_year,
+    department_allowed_years,
+    department_matches,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME     = os.getenv("DB_NAME", "TimeTable")
+try:
+    MAX_DUTIES = max(1, int(os.getenv("MAX_DUTIES", "5")))
+except (TypeError, ValueError):
+    MAX_DUTIES = 5
 
 
 
@@ -101,8 +112,30 @@ def migrate_db_schema():
                 update_fields["email"] = f"{f['teacher_id']}@pict.edu"
             if "department" not in f:
                 update_fields["department"] = "General"
-            if "teaching_years" not in f:
-                update_fields["teaching_years"] = []
+            if "role" in f:
+                normalized_role = normalize_role(f.get("role"))
+                if normalized_role != f.get("role"):
+                    update_fields["role"] = normalized_role
+            # Department policy is authoritative.  Empty teaching_years must
+            # never mean "no invigilation".  Legacy stringified year lists are
+            # normalized back to real arrays so they keep narrowing the policy.
+            raw_years = f.get("teaching_years")
+            if not raw_years:
+                update_fields["teaching_years"] = sorted(
+                    department_allowed_years(update_fields.get("department", f.get("department")))
+                )
+            elif not isinstance(raw_years, list):
+                normalized_years = sorted(effective_teaching_years({
+                    "department": update_fields.get("department", f.get("department")),
+                    "teaching_years": raw_years,
+                }))
+                update_fields["teaching_years"] = normalized_years or sorted(
+                    department_allowed_years(update_fields.get("department", f.get("department")))
+                )
+            if "max_duties" not in f:
+                update_fields["max_duties"] = MAX_DUTIES
+            if "pinned_duties" not in f or not isinstance(f.get("pinned_duties"), list):
+                update_fields["pinned_duties"] = []
 
             if update_fields or unset_fields:
                 update_op = {}
@@ -151,6 +184,12 @@ def get_db():
             new_db["adjustments"].create_index([("status", 1), ("created_at", -1)])
             new_db["timetables"].create_index([("department", 1), ("version", -1)])
             new_db["timetables"].create_index([("confirmed_at", -1)])
+            new_db["assignments"].create_index([("timetable_id", 1), ("duty_id", 1)], unique=True, sparse=True)
+            new_db["assignments"].create_index([("department", 1), ("active", 1)])
+            new_db["assignments"].create_index([("teacher_id", 1), ("date", 1)])
+            new_db["assignments"].create_index([("timetable_id", 1), ("role", 1)])
+            new_db["swap_log"].create_index([("created_at", -1)])
+            new_db["roster_snapshots"].create_index([("timetable_id", 1), ("roster_type", 1)], unique=True)
         except Exception:
             client = None
             db = None
@@ -181,27 +220,42 @@ def init_faculty(teachers_data):
             existing = faculty_col.find_one({"email": t_id})
 
         if not existing:
-            teacher_email = f"{t_id}@pict.edu"  # canonical email format
+            teacher_email = f"{t_id}@pict.edu".lower()  # canonical email format
+            department = t_info.get("department", "IT")
             faculty_col.insert_one({
                 "teacher_id"          : t_id,
                 "email"               : teacher_email,
                 "name"                : t_info["name"],
-                "role"                : t_info.get("role", "Junior"),
-                "department"          : t_info.get("department", "IT"),
-                "teaching_years"      : [],
+                "role"                : normalize_role(t_info.get("role", "Junior")),
+                "department"          : department,
+                "teaching_years"      : sorted(department_allowed_years(department)),
+                "max_duties"          : MAX_DUTIES,
+                "pinned_duties"       : [],
                 "has_served_high_role": False,
                 "duty_counts"         : { "squad": 0, "junior": 0, "senior": 0 },
                 "last_role"           : "N/A",
                 "history"             : [],
-                "password_hash"       : None
+                "password_hash"       : generate_password_hash(str(t_id).strip().lower()),
+                "password_changed"    : False,
             })
         else:
             # Keep name/role in sync with Excel in case it was updated
             update_fields = {
                 "teacher_id": t_id,
+                "email"     : str(existing.get("email") or f"{t_id}@pict.edu").strip().lower(),
                 "name"      : t_info["name"],
-                "role"      : t_info.get("role", existing.get("role", "Junior")),
+                "role"      : normalize_role(t_info.get("role", existing.get("role", "Junior"))),
             }
+            if not existing.get("password_hash"):
+                update_fields["password_hash"] = generate_password_hash(str(t_id).strip().lower())
+            if not existing.get("teaching_years"):
+                update_fields["teaching_years"] = sorted(
+                    department_allowed_years(t_info.get("department", existing.get("department")))
+                )
+            if "max_duties" not in existing:
+                update_fields["max_duties"] = MAX_DUTIES
+            if "pinned_duties" not in existing or not isinstance(existing.get("pinned_duties"), list):
+                update_fields["pinned_duties"] = []
             if "duty_counts" not in existing:
                 flat_count = existing.get("duty_count", 0)
                 role_val = str(update_fields.get("role") or "junior").strip().lower()
@@ -219,21 +273,60 @@ def init_faculty(teachers_data):
             )
 
 
-def set_teacher_eligibility(teacher_id, teaching_years, department=None):
-    """Coordinator-only update for MongoDB teacher eligibility."""
+def _clean_pinned_duties(raw):
+    cleaned = []
+    if not isinstance(raw, list):
+        return cleaned
+    for item in raw:
+        if not isinstance(item, dict) or not item.get("date") or item.get("slot") is None:
+            continue
+        cleaned.append({
+            "date": format_date_to_standard(item.get("date")),
+            "slot": str(item.get("slot")).strip(),
+            "role": normalize_role(item.get("role") or "Junior"),
+            "course_id": str(item.get("course_id") or "ALL"),
+        })
+    return cleaned
+
+
+def set_teacher_eligibility(teacher_id, teaching_years, department=None,
+                            max_duties=None, pinned_duties=None):
+    """Coordinator-only update for MongoDB teacher eligibility and duty limits.
+
+    An empty ``teaching_years`` list resets the teacher to the department
+    policy instead of disabling invigilation.
+    """
     database = get_db()
+    teacher = database["teachers"].find_one({"teacher_id": teacher_id})
+    if not teacher:
+        return False
+
+    effective_department = department if department is not None and str(department).strip() else teacher.get("department")
     normalized = []
-    aliases = {"1": "FY", "2": "SY", "3": "TY", "4": "BTECH", "B.TECH": "BTECH"}
     for value in teaching_years or []:
-        v = str(value).strip().upper().replace(" ", "")
-        v = aliases.get(v, v)
+        v = normalize_year(value)
         if v in {"FY", "SY", "TY", "BTECH", "ALL"} and v not in normalized:
             normalized.append(v)
     if not normalized:
-        raise ValueError("At least one teaching year is required")
-    fields = {"teaching_years": normalized}
-    if department is not None and str(department).strip():
-        fields["department"] = str(department).strip()
+        normalized = sorted(department_allowed_years(effective_department))
+
+    fields = {
+        "teaching_years": normalized,
+        "department": str(effective_department).strip() or teacher.get("department", "General"),
+    }
+    if max_duties is not None:
+        try:
+            value = int(max_duties)
+        except (TypeError, ValueError):
+            raise ValueError("max_duties must be an integer")
+        if value < 1 or value > 60:
+            raise ValueError("max_duties must be between 1 and 60")
+        fields["max_duties"] = value
+    if pinned_duties is not None:
+        if not isinstance(pinned_duties, list):
+            raise ValueError("pinned_duties must be a list")
+        fields["pinned_duties"] = _clean_pinned_duties(pinned_duties)
+
     result = database["teachers"].update_one({"teacher_id": teacher_id}, {"$set": fields})
     return result.matched_count > 0
 
@@ -299,25 +392,39 @@ def update_faculty_duty(teacher_id, role, date, slot_id, is_high_role=False, cou
 
 
 def check_reset_fairness(department="IT"):
-    """
-    If everyone in the department has now served a high role,
-    reset all flags so the fairness cycle restarts.
-    Returns True if a reset was triggered.
+    """Restart the high-role fairness cycle when every eligible supervisor served.
+
+    Only non-admin Senior/Squad teachers can ever receive a high-role duty, so
+    they are the only teachers that may block (or trigger) a reset.  Counting
+    Junior staff here would make the cycle impossible to finish.  A department
+    with no matching supervisors never triggers a reset (``ALL`` selects all
+    departments, it is not an empty department).
     """
     database = get_db()
 
-    count_false = database["teachers"].count_documents({
-        "department"          : department,
-        "has_served_high_role": False
-    })
+    scope_all = str(department or "").strip().upper() in {"", "ALL", "*"}
+    supervisors = []
+    for doc in database["teachers"].find({"is_admin": {"$ne": True}}):
+        if normalize_role(doc.get("role")) not in {"Senior", "Squad"}:
+            continue
+        if scope_all or department_matches(doc.get("department"), department):
+            supervisors.append(doc)
 
-    if count_false == 0:
-        database["teachers"].update_many(
-            {"department": department},
-            {"$set": {"has_served_high_role": False}}
-        )
-        return True
-    return False
+    if not supervisors:
+        return False
+    if any(not doc.get("has_served_high_role", False) for doc in supervisors):
+        return False
+
+    database["teachers"].update_many(
+        {"_id": {"$in": [doc["_id"] for doc in supervisors]}},
+        {"$set": {
+            "has_served_high_role": False,
+            # Rebuilt history will only count high-role duties confirmed after
+            # this boundary, so the reset survives the next publication.
+            "fairness_cycle_started_at": datetime.utcnow().isoformat() + "Z",
+        }},
+    )
+    return True
 
 
 def get_all_faculty_status():
@@ -339,15 +446,15 @@ def get_all_faculty_status():
     return result
 
 
-def update_password(identifier: str, new_password: str) -> bool:
+def update_password(email: str, new_password: str) -> bool:
     """
-    Hash and store a new password for the teacher identified by email or teacher_id.
+    Hash and store a new password for the teacher identified by email.
     Returns True if a matching document was found and updated, False otherwise.
     """
     database = get_db()
     new_hash = generate_password_hash(new_password)
     result = database["teachers"].update_one(
-        {"$or": [{"email": identifier}, {"teacher_id": identifier}]},
+        {"email": email.strip().lower()},
         {"$set": {"password_hash": new_hash}}
     )
     return result.matched_count > 0
@@ -422,8 +529,11 @@ def get_all_teachers_from_db():
         teachers[t_id] = {
             "id": t_id,
             "name": doc.get("name", f"Prof. {t_id}"),
-            "role": doc.get("role", "Junior"),
+            "role": normalize_role(doc.get("role", "Junior")),
             "department": doc.get("department", "General"),
+            "teaching_years": effective_teaching_years(doc),
+            "max_duties": int(doc.get("max_duties") or MAX_DUTIES),
+            "pinned_duties": doc.get("pinned_duties") or [],
             "preferred_slots": preferred_slots
         }
     return teachers

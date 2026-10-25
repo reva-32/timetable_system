@@ -62,6 +62,7 @@ logs/
 # Uploads & Exported Reports
 # ----------------------------
 backend/uploads/
+backend/generated_reports/
 *.pdf
 *.xlsx
 # Keep the upload directory, but never commit uploaded documents

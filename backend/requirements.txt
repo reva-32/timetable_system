@@ -4,9 +4,12 @@ pymongo
 python-dotenv
 pandas
 openpyxl
+Pillow
 numpy
 scipy
 tabulate
 pdfplumber
 PyPDF2
+reportlab
 gunicorn
+python-docx
